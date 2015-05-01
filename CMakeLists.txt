@@ -563,6 +563,7 @@ set(SIAL_FILES
     src/sialx/qm/rccsd_rhf.sialx;
     src/sialx/qm/rlambda_rhf.sialx;
     src/sialx/qm/rlccd_rhf.sialx;
+    src/sialx/qm/rlccsd_rhf.sialx;
     src/sialx/qm/rccsdpt_aaa.sialx;
     src/sialx/qm/rccsdpt_aab.sialx;
     src/sialx/qm/rccpt1p2_prop.sialx;
@@ -570,6 +571,7 @@ set(SIAL_FILES
     src/sialx/qm/rcis_d_rhf.sialx;
     src/sialx/qm/rcis_ccpt2_rhf.sialx;
     src/sialx/qm/lr_eom_ccsd_rhf.sialx;
+    src/sialx/qm/lr_eom_linccsd_rhf.sialx;
     src/sialx/qm/reom_rhf_defs.sialx;
     src/sialx/qm/rccsd_rhf_defs.sialx)
 
