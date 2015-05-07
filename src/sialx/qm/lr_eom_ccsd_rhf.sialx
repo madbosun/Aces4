@@ -15,7 +15,7 @@ index ksub1    = 1: eom_subspc
 index ksub2    = 1: eom_subspc
 index qsub     = 2: eom_subspc
 index jsub     = 1: eom_subspc
-index cart     = 1: 3
+index ixyz     = 1: 3
 
 aoindex mu     = 1: norb
 aoindex nu     = 1: norb
@@ -76,11 +76,14 @@ static St1b[b,j]
 static GSmat[ksub,ksub1]
 static SAlphaL[ksub,ksub1]
 static SAlphaR[ksub,ksub1]
+static SR0[ksub]
+static Dipole[ixyz]
 #
 # Declare distributed
 # --------------- 
 #
 distributed  T1A[a,i]
+distributed L1a[i,a]
 distributed Mxj[sigma,j]
 distributed Mxi[sigma,i]
 distributed HBAR_ia[i,a]
@@ -115,6 +118,10 @@ distributed VCHACT1A[a,i]
 served  T2AA[a,i,a1,i1]
 served  T2AB[a,i,b,j]
 served  T2BB[b,j,b1,j1]
+served L2aa[i,a,i1,a1]
+served L2ab[i,a,j,b]
+served G1_a[p,p1]
+served G1ao_a[mu,nu]
 served  Vaaii [a,a1,i,i1]
 served  Viaai [i,a,a1,i1]
 served  Vaaai [a,a1,a2,i]
@@ -1506,6 +1513,11 @@ restore_persistent Viaai "Viaai"
 restore_persistent Vaaai "Vaaai"
 restore_persistent VSaaai "VSaaai"
 restore_persistent Vpiqj "Vpiqj"
+restore_persistent L1a  "l1a_old"
+restore_persistent L2aa "l2old_aa"
+restore_persistent L2ab "l2old_ab"
+restore_persistent dipole "scf_dipole"
+set_persistent dipole "scf_dipole"
 #restore_persistent VSqjqj "VSqjqj"
 #restore_persistent Vbbjj "Vbbjj"
 #restore_persistent Vjbbj "Vjbbj"
@@ -6353,6 +6365,144 @@ endpardo a,i,b,j,kstate
 server_barrier
 
 ENDPROC form_guess
+#
+#---------------------------------------------------------------
+#
+proc place_lr_vec
+#
+do kstate
+    normS = 0.0
+    pardo a,i
+	request RB1_a[kstate,a,i]
+	Tkai[kstate,a,i] = RB1_a[kstate,a,i]
+	normT  = Tkai[kstate,a,i]*RB1_a[kstate,a,i]
+	normT  = 2.0
+	normS += normT
+	prepare R0k1_a[kstate,a,i] = Tkai[kstate,a,i]
+    endpardo a,i
+    pardo a,i,a1,i1
+	request RB2_aa[kstate,a,i,a1,i1]
+	Tkaiai[kstate,a,i,a1,i1] = RB2_aa[kstate,a,i,a1,i1]
+	normT  = Tkaiai[kstate,a,i,a1,i1]*RB2_aa[kstate,a,i,a1,i1]
+	normT *= 0.5
+	normS += normT
+	prepare R0k2_aa[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+	request RB2_ab[kstate,a,i,b,j]
+	Tkaibj[kstate,a,i,b,j] = RB2_ab[kstate,a,i,b,j]
+	normT  = Tkaibj[kstate,a,i,b,j]*RB2_ab[kstate,a,i,b,j]
+	normS += normT
+	prepare R0k2_ab[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
+    endpardo a,i,b,j
+    server_barrier
+    norm1 = 0.0
+    collective norm1 += normS
+    norm2 = (norm1)**0.5
+    normr = 1.0/norm2
+    norml = norm2
+
+    pardo a,i
+	prepare R0k1_a[kstate,a,i] *= normr
+    endpardo a,i
+    pardo a,i,a1,i1
+	prepare R0k2_aa[kstate,a,i,a1,i1] *= normr
+    endpardo a,i,a1,i1
+    pardo a,i,b,j
+	prepare R0k2_ab[kstate,a,i,b,j] *= normr
+    endpardo a,i,b,j
+
+    pardo a,i
+	request LB1_a[kstate,a,i]
+	Tkai[kstate,a,i] = LB1_a[kstate,a,i]
+	Tkai[kstate,a,i] *= norml
+	prepare L0k1_a[kstate,a,i] = Tkai[kstate,a,i]
+    endpardo a,i
+
+    pardo a,i,a1,i1
+	request LB2_aa[kstate,a,i,a1,i1]
+	Tkaiai[kstate,a,i,a1,i1] = LB2_aa[kstate,a,i,a1,i1]
+	Tkaiai[kstate,a,i,a1,i1] *= norml
+	prepare L0k2_aa[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+	request LB2_ab[kstate,a,i,b,j]
+	Tkaibj[kstate,a,i,b,j] = LB2_ab[kstate,a,i,b,j]
+	Tkaibj[kstate,a,i,b,j] *= norml
+	prepare L0k2_ab[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
+    endpardo a,i,b,j
+enddo kstate
+server_barrier
+#
+endproc place_lr_vec
+#
+proc form_r0
+#
+do kstate
+    sum1 = 0.0
+    sum2 = 0.0
+    sum3 = 0.0
+    pardo a,i
+        request R0k1_a[kstate,a,i]
+        Tk[kstate] = 1.0
+        Tai[a,i] = Tk[kstate]*R0k1_a[kstate,a,i]
+        etemp  = LHBAR_ia[i,a]*Tai[a,i]
+        etemp *= 2.0
+        sum1  += etemp
+    endpardo a,i
+    pardo a,i,a1,i1
+        request VSpipi[a,i,a1,i1]
+        request R0k2_aa[kstate,a,i,a1,i1]
+        Tk[kstate] = 1.0
+        Taiai[a,i,a1,i1] = Tk[kstate]*R0k2_aa[kstate,a,i,a1,i1]
+        etemp  = VSpipi[a,i,a1,i1]*Taiai[a,i,a1,i1]
+        etemp *= 0.5
+        sum2  += etemp
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+        request Vpiqj[a,i,b,j]
+        request R0k2_ab[kstate,a,i,b,j]
+        Tk[kstate] = 1.0
+        Taibj[a,i,b,j] = Tk[kstate]*R0k2_ab[kstate,a,i,b,j]
+        etemp = Vpiqj[a,i,b,j]*Taibj[a,i,b,j]
+        sum3 += etemp
+    endpardo a,i,b,j
+    server_barrier
+    etemp1 = 0.0
+    etemp2 = 0.0
+    etemp3 = 0.0
+    collective etemp1 += sum1
+    collective etemp2 += sum2
+    collective etemp3 += sum3
+
+    etemp4  = etemp1
+    etemp4 += etemp2
+    etemp4 += etemp3
+
+    omega = SEk0[kstate]
+    etemp = (etemp4/omega)
+    r0 = etemp
+    SR0[kstate] = r0
+enddo kstate
+print SR0
+#
+endproc form_r0
+#
+proc form_right_transition_moment
+#
+# BIG loop over states
+do kstate
+#
+    r0 = SR0[kstate]
+#
+enddo kstate
+#
+endproc form_right_transition_moment
+#
+#
 # -----------------
 #  MAIN
 # -----------------
@@ -6423,6 +6573,10 @@ do kstate
     print EOM_EE_Energy[kstate:kstate]
     deallocate contiguous EOM_EE_Energy[kstate:kstate]
 enddo kstate
+
+call place_lr_vec
+call form_r0
+call form_right_transition_moment
 
 server_barrier
 #
