@@ -209,22 +209,24 @@ H -0.75198755    -0.50051034    -0.00000000
 H  0.75198873    -0.50050946    -0.00000000
 
 *ACES2(BASIS=3-21G
-scf_conv=8
-cc_conv=8
+scf_conv=12
+cc_conv=12
 spherical=off
 excite=eomee
 estate_sym=2
-estate_tol=7
+estate_tol=9
 symmetry=off
 CALC=ccsd)
 
 *SIP
 MAXMEM=1500
 SIAL_PROGRAM = scf_rhf_coreh.siox
-SIAL_PROGRAM = tran_uhf_no4v.siox
+SIAL_PROGRAM = tran_rhf_no4v.siox
 SIAL_PROGRAM = rccsd_rhf.siox
+SIAL_PROGRAM = rlambda_rhf.siox
 SIAL_PROGRAM = rcis_rhf.siox
-SIAL_PROGRAM = lr_eom_ccsd_rhf.siox 
+SIAL_PROGRAM = lr_eom_ccsd_rhf.siox
+
 */
 TEST(Sial_QM,eom_test){
 	std::string job("eom_test");
@@ -254,6 +256,10 @@ TEST(Sial_QM,eom_test){
 		double ccsd_energy = controller.scalar_value("ccsd_energy");
 		ASSERT_NEAR(-75.71251002928709, ccsd_energy, 1e-10);
 	}
+//
+// lambda 
+	controller.initSipTables(qm_dir_name);
+	controller.run();
 //
 // CIS
 	controller.initSipTables(qm_dir_name);

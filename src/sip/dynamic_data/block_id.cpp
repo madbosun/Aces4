@@ -234,7 +234,7 @@ bool BlockId::is_well_formed(){
 std::string BlockId::str(const SipTables& sip_tables) const{
 std::stringstream ss;
 bool contiguous_local = sip_tables.is_contiguous_local(array_id_);
-if (contiguous_local) ss << "contiguous local ";
+//if (contiguous_local) ss << "contiguous local ";
 int rank = sip_tables.array_rank(array_id_);
 ss << sip_tables.array_name(array_id_) ;
 ss << '[';

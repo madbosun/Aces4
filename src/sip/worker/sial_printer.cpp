@@ -153,7 +153,8 @@ void SialPrinterForTests::do_print_block(const BlockId& id, Block::BlockPtr bloc
 		out_.setf(std::ios_base::fixed);
 		out_ << line_number << ":  ";
 		if (size == 1) {
-		    out_ << "printing " << id.str(sip_tables_) << " = ";
+		    //out_ << "printing " << id.str(sip_tables_) << " = ";
+		    out_ << id.str(sip_tables_) << " = ";
 		    out_ << *(data);
 		} else {
 		    out_ << "printing " << (size < MAX_TO_PRINT?size:MAX_TO_PRINT);
