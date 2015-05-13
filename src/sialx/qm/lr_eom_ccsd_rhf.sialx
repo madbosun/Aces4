@@ -5947,9 +5947,6 @@ where ksub == 1
 	normT  = LB1_a[ksub,a,i]*RB1_a[ksub,a,i]
 	normT *= 2.0
 	normS += normT
-#
-	Tai[a,i] = Tk[ksub]*LB1_a[ksub,a,i]
-	T1ai[a,i] = Tk[ksub]*RB1_a[ksub,a,i]
     endpardo a,i
     pardo a,i,a1,i1
 	request RB2_aa[ksub,a,i,a1,i1]
@@ -5957,9 +5954,6 @@ where ksub == 1
 	normT  = LB2_aa[ksub,a,i,a1,i1]*RB2_aa[ksub,a,i,a1,i1]
 	normT *= 0.5
 	normS += normT
-#
-	Taiai[a,i,a1,i1] = Tk[ksub]*LB2_aa[ksub,a,i,a1,i1]
-	T1aiai[a,i,a1,i1] = Tk[ksub]*RB2_aa[ksub,a,i,a1,i1]
     endpardo a,i,a1,i1
 
     pardo a,i,b,j
@@ -5967,9 +5961,6 @@ where ksub == 1
 	request LB2_ab[ksub,a,i,b,j]
 	normT  = LB2_ab[ksub,a,i,b,j]*RB2_ab[ksub,a,i,b,j]
 	normS += normT
-#
-	Taibj[a,i,b,j] = Tk[ksub]*LB2_ab[ksub,a,i,b,j]
-	T1aibj[a,i,b,j] = Tk[ksub]*RB2_ab[ksub,a,i,b,j]
     endpardo a,i,b,j
     server_barrier
     norm1   = 0.0
@@ -6158,9 +6149,6 @@ do qsub
 	normT  = LB1_a[qsub,a,i]*RB1_a[qsub,a,i]
 	normT *= 2.0
 	normS += normT
-#
-	Tai[a,i] = Tk[qsub]*LB1_a[qsub,a,i]
-	T1ai[a,i] = Tk[qsub]*RB1_a[qsub,a,i]
     endpardo a,i
     pardo a,i,a1,i1
 	request RB2_aa[qsub,a,i,a1,i1]
@@ -6168,18 +6156,12 @@ do qsub
 	normT  = LB2_aa[qsub,a,i,a1,i1]*RB2_aa[qsub,a,i,a1,i1]
 	normT *= 0.5
 	normS += normT
-#
-	Taiai[a,i,a1,i1] = Tk[qsub]*LB2_aa[qsub,a,i,a1,i1]
-	T1aiai[a,i,a1,i1] = Tk[qsub]*RB2_aa[qsub,a,i,a1,i1]
     endpardo a,i,a1,i1
     pardo a,i,b,j
 	request RB2_ab[qsub,a,i,b,j]
 	request LB2_ab[qsub,a,i,b,j]
 	normT  = LB2_ab[qsub,a,i,b,j]*RB2_ab[qsub,a,i,b,j]
 	normS += normT
-#
-	Taibj[a,i,b,j] = Tk[qsub]*LB2_ab[qsub,a,i,b,j]
-	T1aibj[a,i,b,j] = Tk[qsub]*RB2_ab[qsub,a,i,b,j]
     endpardo a,i,b,j
     server_barrier
     norm1   = 0.0
@@ -6368,75 +6350,63 @@ ENDPROC form_guess
 #
 #---------------------------------------------------------------
 #
-proc place_lr_vec
+proc norm_lr_vec
 #
-do kstate
-    normS = 0.0
+do ksub
+#######################
+    normS   = 0.0
+    Tk[ksub] = 1.0
     pardo a,i
-	request RB1_a[kstate,a,i]
-	Tkai[kstate,a,i] = RB1_a[kstate,a,i]
-	normT  = Tkai[kstate,a,i]*RB1_a[kstate,a,i]
-	normT  = 2.0
+	request RB1_a[ksub,a,i]
+	Tkai[ksub,a,i] = RB1_a[ksub,a,i]
+	normT  = Tkai[ksub,a,i]*RB1_a[ksub,a,i]
+	normT *= 2.0
 	normS += normT
-	prepare R0k1_a[kstate,a,i] = Tkai[kstate,a,i]
     endpardo a,i
     pardo a,i,a1,i1
-	request RB2_aa[kstate,a,i,a1,i1]
-	Tkaiai[kstate,a,i,a1,i1] = RB2_aa[kstate,a,i,a1,i1]
-	normT  = Tkaiai[kstate,a,i,a1,i1]*RB2_aa[kstate,a,i,a1,i1]
+	request RB2_aa[ksub,a,i,a1,i1]
+	Tkaiai[ksub,a,i,a1,i1] = RB2_aa[ksub,a,i,a1,i1]
+	normT  = Tkaiai[ksub,a,i,a1,i1]*RB2_aa[ksub,a,i,a1,i1]
 	normT *= 0.5
 	normS += normT
-	prepare R0k2_aa[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
     endpardo a,i,a1,i1
 
     pardo a,i,b,j
-	request RB2_ab[kstate,a,i,b,j]
-	Tkaibj[kstate,a,i,b,j] = RB2_ab[kstate,a,i,b,j]
-	normT  = Tkaibj[kstate,a,i,b,j]*RB2_ab[kstate,a,i,b,j]
+	request RB2_ab[ksub,a,i,b,j]
+	Tkaibj[ksub,a,i,b,j] = RB2_ab[ksub,a,i,b,j]
+	normT  = Tkaibj[ksub,a,i,b,j]*RB2_ab[ksub,a,i,b,j]
 	normS += normT
-	prepare R0k2_ab[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
     endpardo a,i,b,j
     server_barrier
-    norm1 = 0.0
-    collective norm1 += normS
-    norm2 = (norm1)**0.5
-    normr = 1.0/norm2
-    norml = norm2
+    norm1   = 0.0
+    collective norm1   += normS
+    norm2 = (norm1)**(-0.5)
+#######################
 
     pardo a,i
-	prepare R0k1_a[kstate,a,i] *= normr
+        prepare RB1_a[ksub,a,i] *= norm2
     endpardo a,i
     pardo a,i,a1,i1
-	prepare R0k2_aa[kstate,a,i,a1,i1] *= normr
+        prepare RB2_aa[ksub,a,i,a1,i1] *= norm2
     endpardo a,i,a1,i1
     pardo a,i,b,j
-	prepare R0k2_ab[kstate,a,i,b,j] *= normr
+        prepare RB2_ab[ksub,a,i,b,j] *= norm2
     endpardo a,i,b,j
+
+    norm2 = (norm1)**(0.5)
 
     pardo a,i
-	request LB1_a[kstate,a,i]
-	Tkai[kstate,a,i] = LB1_a[kstate,a,i]
-	Tkai[kstate,a,i] *= norml
-	prepare L0k1_a[kstate,a,i] = Tkai[kstate,a,i]
+        prepare LB1_a[ksub,a,i] *= norm2
     endpardo a,i
-
     pardo a,i,a1,i1
-	request LB2_aa[kstate,a,i,a1,i1]
-	Tkaiai[kstate,a,i,a1,i1] = LB2_aa[kstate,a,i,a1,i1]
-	Tkaiai[kstate,a,i,a1,i1] *= norml
-	prepare L0k2_aa[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
+        prepare LB2_aa[ksub,a,i,a1,i1] *= norm2
     endpardo a,i,a1,i1
-
     pardo a,i,b,j
-	request LB2_ab[kstate,a,i,b,j]
-	Tkaibj[kstate,a,i,b,j] = LB2_ab[kstate,a,i,b,j]
-	Tkaibj[kstate,a,i,b,j] *= norml
-	prepare L0k2_ab[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
+        prepare LB2_ab[ksub,a,i,b,j] *= norm2
     endpardo a,i,b,j
-enddo kstate
-server_barrier
+enddo ksub
 #
-endproc place_lr_vec
+endproc norm_lr_vec
 #
 proc form_r0
 #
@@ -6445,18 +6415,18 @@ do kstate
     sum2 = 0.0
     sum3 = 0.0
     pardo a,i
-        request R0k1_a[kstate,a,i]
+        request RB1_a[kstate,a,i]
         Tk[kstate] = 1.0
-        Tai[a,i] = Tk[kstate]*R0k1_a[kstate,a,i]
+        Tai[a,i] = Tk[kstate]*RB1_a[kstate,a,i]
         etemp  = LHBAR_ia[i,a]*Tai[a,i]
         etemp *= 2.0
         sum1  += etemp
     endpardo a,i
     pardo a,i,a1,i1
         request VSpipi[a,i,a1,i1]
-        request R0k2_aa[kstate,a,i,a1,i1]
+        request RB2_aa[kstate,a,i,a1,i1]
         Tk[kstate] = 1.0
-        Taiai[a,i,a1,i1] = Tk[kstate]*R0k2_aa[kstate,a,i,a1,i1]
+        Taiai[a,i,a1,i1] = Tk[kstate]*RB2_aa[kstate,a,i,a1,i1]
         etemp  = VSpipi[a,i,a1,i1]*Taiai[a,i,a1,i1]
         etemp *= 0.5
         sum2  += etemp
@@ -6464,9 +6434,9 @@ do kstate
 
     pardo a,i,b,j
         request Vpiqj[a,i,b,j]
-        request R0k2_ab[kstate,a,i,b,j]
+        request RB2_ab[kstate,a,i,b,j]
         Tk[kstate] = 1.0
-        Taibj[a,i,b,j] = Tk[kstate]*R0k2_ab[kstate,a,i,b,j]
+        Taibj[a,i,b,j] = Tk[kstate]*RB2_ab[kstate,a,i,b,j]
         etemp = Vpiqj[a,i,b,j]*Taibj[a,i,b,j]
         sum3 += etemp
     endpardo a,i,b,j
@@ -6484,23 +6454,21 @@ do kstate
 
     omega = SEk0[kstate]
     etemp = (etemp4/omega)
-    r0 = etemp
+    print etemp
+    normT = 1.0
+    normT += etemp**2.0
+    normS = 1.0/(normT)**0.5
+    print normS
+    r0 = etemp*normS
+    print r0
     SR0[kstate] = r0
 enddo kstate
-print SR0
 #
 endproc form_r0
 #
-proc form_right_transition_moment
 #
-# BIG loop over states
-do kstate
-#
-    r0 = SR0[kstate]
-#
-enddo kstate
-#
-endproc form_right_transition_moment
+#-------------------------------------------------------------------------
+
 #
 #
 # -----------------
@@ -6514,8 +6482,8 @@ roots = eom_roots
 
 print " "
 print "-- Parallel left-right EE-EOM-CCSD program"
-print "-- Subspace collapse non-symmetric davidson update"
 print "-- J. Comp. Phys. 1992, 103, 382-389 | J Chem Phys 2009, 130, 124122."
+print "-- Subspace collapse non-symmetric davidson update"
 print "-- J. Comp. Chem. 2001, 22, 1574-1589"
 print "-- Written by Jason N. Byrd, 2015"
 print " "
@@ -6574,9 +6542,12 @@ do kstate
     deallocate contiguous EOM_EE_Energy[kstate:kstate]
 enddo kstate
 
-call place_lr_vec
+# -----------------
+# props
+# -----------------
+# scale so <R|R>=1.0 
+call norm_lr_vec
 call form_r0
-call form_right_transition_moment
 
 server_barrier
 #
