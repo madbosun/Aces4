@@ -1577,35 +1577,32 @@ PROC READ_AMP
 #     -------------
 print "reading persistent arrays"
 #     -------------
+restore_persistent has_singles "has_singles"
+restore_persistent is_ccpt "is_ccpt" 
+server_barrier
+
 restore_persistent ca    "ca"
 restore_persistent Fock_a "fock_a"
 restore_persistent R1k1_a   "C1_a"
 restore_persistent RB1_a    "B1_a"
+if has_singles == 1.0
 restore_persistent t1a "t1a_old"
+restore_persistent Lam1a  "l1a_old"
+endif
 restore_persistent T2aa "T2old_aa"
 restore_persistent T2ab "T2old_ab" 
+restore_persistent Lam2aa "l2old_aa"
+restore_persistent Lam2ab "l2old_ab"
 restore_persistent VSpipi "VSpipi"
 restore_persistent Vaaii "Vaaii"
 restore_persistent Viaai "Viaai"
 restore_persistent Vaaai "Vaaai"
 restore_persistent VSaaai "VSaaai"
 restore_persistent Vpiqj "Vpiqj"
-restore_persistent Lam1a  "l1a_old"
-restore_persistent Lam2aa "l2old_aa"
-restore_persistent Lam2ab "l2old_ab"
 restore_persistent dipole "scf_dipole"
 set_persistent dipole "scf_dipole"
 restore_persistent NucDip "nuclear_dipole"
 set_persistent NucDip "nuclear_dipole"
-#restore_persistent VSqjqj "VSqjqj"
-#restore_persistent Vbbjj "Vbbjj"
-#restore_persistent Vjbbj "Vjbbj"
-#restore_persistent Vbbii "Vbbii"
-#restore_persistent Vjbii "Vjbii"
-#restore_persistent Vbbai "Vbbai"
-#restore_persistent Vaajj "Vaajj"
-#restore_persistent Viabj "Viabj"
-#restore_persistent Vaabj "Vaabj"
 server_barrier
 
 ### JNB debug ccsd energy test
@@ -1641,6 +1638,7 @@ server_barrier
 #eccsd = ecorrab
 #print eccsd
 
+if has_singles == 1.0
 #
 # put T1 amplitudes in statics
 #
@@ -1659,12 +1657,12 @@ if myrank == root
 endif
 broadcast_from root St1a
 broadcast_from root St1b
-
 pardo i,a
     get Lam1A[i,a]
     Tia[i,a] = Lam1A[i,a]
     put Lam1B[i,a] = Tia[i,a]
 endpardo i,a
+endif
 
 # for RHF T2bb=T2aa
 
@@ -3447,6 +3445,1676 @@ endpardo a, a1, a2, i
 server_barrier
 
 ENDPROC form_H
+
+# ---------------------------------------------------------
+PROC CCPT_HBAR_AB
+
+#     alpha-alpha spin component first. 
+#     --------------------------------- 
+
+# diagram 1+3
+PARDO a, a1 
+
+    tpp[a,a1] = fock_a[a,a1]       
+
+if has_singles == 1.0
+    DO i 
+	t1pp[a,a1] = St1a[a,i]*fock_a[i,a1] 
+	tpp[a,a1] -= t1pp[a,a1] 
+    ENDDO i 
+endif
+
+    put HBAR_aa[a,a1] += tpp[a,a1] 
+
+ENDPARDO a, a1 
+
+# diagram 2 a(aa)
+if has_singles == 1.0
+PARDO a, a1, a2, i  
+
+    request VSaaai[a1,a,a2,i]   
+    t1pp[a,a1]         = VSaaai[a1,a,a2,i]*St1a[a2,i] 
+
+    put HBAR_aa[a,a1]                 += t1pp[a,a1] 
+
+ENDPARDO a, a1, a2, i  
+endif
+
+# diagram 1+2 a(ab)
+PARDO a, a1, b, j  
+
+    request Vaabj[a1,a,b,j]   
+    tppqq[a,a1,j,b]    = Vaabj[a1,a,b,j]
+
+if has_singles == 1.0
+    t1pp[a,a1]         = Vaabj[a1,a,b,j]*St1b[b,j] 
+    put HBAR_aa[a,a1]                += t1pp[a,a1] 
+endif
+
+    prepare HBAR_AIBC_aabb[a,a1,j,b] += tppqq[a,a1,j,b] 
+
+ENDPARDO a, a1, b, j  
+
+#diagram 4 a(aa)
+PARDO a, i1, a2, i  
+    request T2aa[a,i,a2,i1]  
+
+    tpppp[a,i,a2,i1]  = T2aa[a,i,a2,i1] 
+
+    DO a1 
+	request VSpipi[a2,i1,a1,i]    
+	t1pp[a,a1]         = tpppp[a,i,a2,i1]*VSpipi[a2,i1,a1,i] 
+	t1pp[a,a1]        *= -0.5  
+	put HBAR_aa[a,a1] += t1pp[a,a1] 
+    ENDDO a1 
+
+ENDPARDO a, i1, a2, i  
+
+#diagram 4 a(ab)
+PARDO a, i, b, j  
+
+    request T2ab[a,i,b,j]  
+    tppqq[a,i,b,j]  = T2ab[a,i,b,j] 
+
+    DO a1  
+
+	request Vpiqj[a1,i,b,j]    
+	t1pp[a,a1]         = tppqq[a,i,b,j]*Vpiqj[a1,i,b,j] 
+	t1pp[a,a1]        *= -1.0  
+	put HBAR_aa[a,a1] += t1pp[a,a1] 
+
+    ENDDO a1  
+
+ENDPARDO a, i, b, j  
+
+#     alpha-alpha spin component done. 
+#     -------------------------------- 
+
+#     beta-beta spin component next. 
+#     ------------------------------ 
+
+#     beta-beta spin component done. 
+#     ------------------------------ 
+
+server_barrier 
+DO a 
+DO a1 
+    GET HBAR_aa[a,a1] 
+    LHBAR_aa[a,a1] = HBAR_aa[a,a1] 
+ENDDO a1 
+ENDDO a 
+server_barrier 
+
+ENDPROC CCPT_HBAR_AB
+
+PROC CCPT_HBAR_IJ
+#     ------------
+
+#     alpha-alpha spin component first. 
+#     --------------------------------- 
+
+PARDO i, i1 
+
+# diagram 1
+    tpp[i1,i] = fock_a[i1,i] 
+
+if has_singles == 1.0
+# diagram 3
+    DO a 
+	t1pp[i1,i] = fock_a[i1,a]*St1a[a,i] 
+	tpp[i1,i] += t1pp[i1,i] 
+    ENDDO a 
+
+# diagram 2 a(aa)
+    DO a 
+    DO i2 
+	request VSpipi[a,i2,i,i1]  
+	t1pp[i1,i] = VSpipi[a,i2,i,i1]*St1a[a,i2]  
+	tpp[i1,i] += t1pp[i1,i] 
+    ENDDO i2 
+    ENDDO a 
+
+# diagram 2 a(ab)
+    DO b 
+    DO j 
+	request Vpiqj[i,i1,b,j]  
+	t1pp[i1,i] = Vpiqj[i,i1,b,j]*St1b[b,j]  
+	tpp[i1,i] += t1pp[i1,i] 
+    ENDDO j 
+    ENDDO b 
+endif
+
+# diagram 4 a(aa)
+    DO a 
+    DO a1 
+    DO i2 
+	request T2aa[a,i,a1,i2]  
+	request VSpipi[a,i1,a1,i2]   
+
+	tpppp[a,i,a1,i2]  = T2aa[a,i,a1,i2]
+
+	t1pp[i1,i]        = tpppp[a,i,a1,i2]*VSpipi[a,i1,a1,i2] 
+	t1pp[i1,i]       *= 0.5 
+	tpp[i1,i]        += t1pp[i1,i] 
+    ENDDO i2 
+    ENDDO a1 
+    ENDDO a 
+
+# diagram 4 a(ab)
+    DO a 
+    DO b 
+    DO j 
+	request T2ab[a,i,b,j]  
+	request Vpiqj[a,i1,b,j]   
+
+	tppqq[a,i,b,j]  = T2ab[a,i,b,j]
+
+	t1pp[i1,i]      = tppqq[a,i,b,j]*Vpiqj[a,i1,b,j] 
+	tpp[i1,i]      += t1pp[i1,i] 
+    ENDDO j 
+    ENDDO b 
+    ENDDO a 
+
+    put HBAR_ii[i1,i] = tpp[i1,i] 
+    #LHBAR_ii[i1,i] = tpp[i1,i] 
+
+ENDPARDO i, i1 
+
+#     done alpha-alpha spin component. 
+#     -------------------------------- 
+
+#     beta-beta spin component next. 
+#     ------------------------------ 
+
+PARDO j, j1 
+
+    tqq[j1,j] = fock_a[j1,j] 
+
+if has_singles == 1.0
+    DO b 
+	t1qq[j1,j] = fock_a[j1,b]*St1b[b,j] 
+	tqq[j1,j] += t1qq[j1,j] 
+    ENDDO b 
+
+    DO b 
+    DO j2 
+	request VSqjqj[b,j2,j,j1]  
+	t1qq[j1,j] = VSqjqj[b,j2,j,j1]*St1b[b,j2]  
+	tqq[j1,j] += t1qq[j1,j] 
+    ENDDO j2 
+    ENDDO b 
+
+    DO a 
+    DO i 
+	request Vpiqj[a,i,j,j1]  
+	t1qq[j1,j] = Vpiqj[a,i,j,j1]*St1a[a,i]  
+	tqq[j1,j] += t1qq[j1,j] 
+    ENDDO i 
+    ENDDO a 
+endif
+
+    DO b 
+    DO b1 
+    DO j2 
+	request T2bb[b,j,b1,j2]  
+	request VSqjqj[b,j1,b1,j2]   
+
+	tqqqq[b,j,b1,j2]  = T2bb[b,j,b1,j2]
+
+	t1qq[j1,j]        = tqqqq[b,j,b1,j2]*VSqjqj[b,j1,b1,j2] 
+	t1qq[j1,j]       *= 0.5 
+	tqq[j1,j]        += t1qq[j1,j] 
+    ENDDO j2 
+    ENDDO b1 
+    ENDDO b 
+
+    DO a 
+    DO b 
+    DO i 
+	request T2ab[a,i,b,j]  
+	request Vpiqj[a,i,b,j1]   
+
+	tppqq[a,i,b,j]  = T2ab[a,i,b,j]
+
+	t1qq[j1,j]      = tppqq[a,i,b,j]*Vpiqj[a,i,b,j1] 
+	tqq[j1,j]      += t1qq[j1,j] 
+    ENDDO i 
+    ENDDO b 
+    ENDDO a 
+
+    put HBAR_jj[j1,j] = tqq[j1,j] 
+
+ENDPARDO j, j1 
+
+server_barrier 
+DO i 
+DO i1 
+    GET              HBAR_ii[i,i1] 
+    LHBAR_ii[i,i1] = HBAR_ii[i,i1]  
+ENDDO i1 
+ENDDO i 
+DO j 
+DO j1 
+    GET              HBAR_jj[j,j1] 
+    LHBAR_jj[j,j1] = HBAR_jj[j,j1]  
+ENDDO j1 
+ENDDO j 
+server_barrier 
+
+#     done beta-beta spin component. 
+#     ------------------------------ 
+
+ENDPROC CCPT_HBAR_IJ
+
+PROC CCPT_HBAR_IB
+#     ------------
+
+#     alpha-alpha spin component first. 
+#     --------------------------------- 
+
+PARDO i, a 
+
+    tpp[i,a] = fock_a[i,a] 
+
+if has_singles == 1.0
+    DO a1 
+    DO i1 
+	request VSpipi[a,i,a1,i1]  
+	t1pp[i,a] = VSpipi[a,i,a1,i1]*St1a[a1,i1] 
+	tpp[i,a] += t1pp[i,a] 
+    ENDDO i1 
+    ENDDO a1 
+
+    DO b 
+    DO j 
+	request Vpiqj[a,i,b,j]  
+	t1pp[i,a] = Vpiqj[a,i,b,j]*St1b[b,j] 
+	tpp[i,a] += t1pp[i,a] 
+    ENDDO j 
+    ENDDO b 
+endif
+
+#    LHBAR_ia[i,a] = tpp[i,a] 
+    put HBAR_ia[i,a] = tpp[i,a] 
+
+ENDPARDO i, a 
+
+#     done alpha-alpha spin component. 
+#     -------------------------------- 
+
+#     beta-beta spin component next. 
+#     ------------------------------ 
+
+PARDO j, b 
+
+    tqq[j,b] = fock_a[j,b] 
+
+if has_singles == 1.0
+    DO b1 
+    DO j1 
+	request VSqjqj[b,j,b1,j1]  
+	t1qq[j,b] = VSqjqj[b,j,b1,j1]*St1b[b1,j1] 
+	tqq[j,b] += t1qq[j,b] 
+    ENDDO j1 
+    ENDDO b1 
+
+    DO a 
+    DO i 
+	request Vpiqj[a,i,b,j]  
+	t1qq[j,b] = Vpiqj[a,i,b,j]*St1a[a,i] 
+	tqq[j,b] += t1qq[j,b] 
+    ENDDO i 
+    ENDDO a 
+endif
+
+#    LHBAR_jb[j,b] = tqq[j,b] 
+    put HBAR_jb[j,b] = tqq[j,b] 
+
+ENDPARDO j, b 
+#     done alpha-alpha spin component. 
+#     -------------------------------- 
+
+server_barrier 
+DO a 
+DO i 
+    GET HBAR_ia[i,a] 
+    LHBAR_ia[i,a] = HBAR_ia[i,a]  
+ENDDO i 
+ENDDO a 
+DO b 
+DO j 
+    GET HBAR_jb[j,b] 
+    LHBAR_jb[j,b] = HBAR_jb[j,b]  
+ENDDO j 
+ENDDO b 
+server_barrier 
+
+ENDPROC CCPT_HBAR_IB
+
+PROC CCPT_HBAR_IJKL  
+#     --------------
+
+#     (alpha,alpha,alpha,alpha) spin component. 
+#     ----------------------------------------- 
+
+PARDO i, i2, i1, i3 
+
+    request VSpipi[i,i1,i2,i3]  
+    tpppp[i,i1,i2,i3] = VSpipi[i,i1,i2,i3] 
+
+if has_singles == 1.0
+    DO a
+	request VSpipi[i1,i,a,i2]   
+	t1pppp[i,i1,i2,i3] = VSpipi[i1,i,a,i2]*St1a[a,i3] 
+	tpppp[i,i1,i2,i3] += t1pppp[i,i1,i2,i3] 
+    ENDDO a
+
+    DO a
+	request VSpipi[i3,i,a,i2]   
+	t1pppp[i,i1,i2,i3] = VSpipi[i3,i,a,i2]*St1a[a,i1] 
+	tpppp[i,i1,i2,i3] -= t1pppp[i,i1,i2,i3] 
+    ENDDO a
+endif
+
+    DO a 
+    DO a1 
+	request VSpipi[a,i,a1,i2]  
+	request T2aa[a,i1,a1,i3]  
+
+	t1pppp[a,i1,a1,i3]  = T2aa[a,i1,a1,i3] 
+
+	t4pppp[i,i1,i2,i3] = VSpipi[a,i,a1,i2]*t1pppp[a,i1,a1,i3] 
+	t4pppp[i,i1,i2,i3] *= 0.5 
+	tpppp[i,i1,i2,i3]  += t4pppp[i,i1,i2,i3] 
+    ENDDO a1 
+    ENDDO a 
+
+    prepare HBAR_iiii[i,i1,i2,i3] = tpppp[i,i1,i2,i3] 
+
+ENDPARDO i, i2, i1, i3 
+
+#     done (alpha,alpha,alpha,alpha) spin component. 
+#     ---------------------------------------------- 
+
+#     (beta,beta,beta,beta) spin component. 
+#     ------------------------------------- 
+
+#     done (beta,beta,beta,beta) spin component. 
+#     ------------------------------------------ 
+
+#     (alpha,alpha,beta,beta) spin component. 
+#     --------------------------------------- 
+
+PARDO i, i1, j2, j3 
+
+    request Vpiqj[i,i1,j2,j3]  
+    tppqq[i,i1,j2,j3] = Vpiqj[i,i1,j2,j3] 
+
+if has_singles == 1.0
+    DO b
+	request Vpiqj[i1,i,b,j2]   
+	t1ppqq[i,i1,j2,j3] = Vpiqj[i1,i,b,j2]*St1b[b,j3] 
+	tppqq[i,i1,j2,j3] += t1ppqq[i,i1,j2,j3] 
+    ENDDO b
+
+    DO a
+	request Vpiqj[a,i,j2,j3]   
+	t1ppqq[i,i1,j2,j3] = Vpiqj[a,i,j2,j3]*St1a[a,i1] 
+	tppqq[i,i1,j2,j3] += t1ppqq[i,i1,j2,j3] 
+    ENDDO a
+endif
+
+    DO a 
+    DO b 
+	request Vpiqj[a,i,b,j2]  
+	request T2ab[a,i1,b,j3]  
+
+	t1ppqq[a,i1,b,j3]  = T2ab[a,i1,b,j3] 
+
+	t3ppqq[i,i1,j2,j3] = Vpiqj[a,i,b,j2]*t1ppqq[a,i1,b,j3] 
+	tppqq[i,i1,j2,j3] += t3ppqq[i,i1,j2,j3] 
+    ENDDO b 
+    ENDDO a 
+
+    prepare HBAR_iijj[i,i1,j2,j3] = tppqq[i,i1,j2,j3] 
+
+ENDPARDO i, i1, j2, j3 
+
+#     done (alpha,alpha,beta,beta) spin component. 
+#     -------------------------------------------- 
+
+ENDPROC CCPT_HBAR_IJKL 
+
+PROC CCPT_HBAR_AIBC   
+#     --------------
+
+#     There are four spin cases to compute:
+#     1. H^{ai}_{bc) --> HBAR_AIBC_aaaa  
+#     2. H^{AI}_{BC) --> HBAR_AIBC_bbbb  
+#     3. H^{Ai}_{Bc) --> HBAR_AIBC_bbaa  
+#     4. H^{aI}_{bC) --> HBAR_AIBC_aabb  
+
+#     Note that since I 'always' store arrays in (11|22) form the 
+#     notation, although valid, is slightly confusing. The 
+#     storage pattern is therefore array(a,b,i,c).   
+
+#    ------------------------------------------------------------------------
+
+#     AAAA spin combination. 
+#     ---------------------- 
+
+#     BBBB spin combination. 
+#     ---------------------- 
+
+#     AABB spin combination. 
+#     ---------------------- 
+if has_singles == 1.0
+PARDO i1, a1, b2, j 
+
+    request Vpiqj[a1,i1,b2,j]  
+
+    DO a 
+	t1ppqq[a,a1,j,b2]                  = Vpiqj[a1,i1,b2,j]*St1a[a,i1] 
+	t1ppqq[a,a1,j,b2]                 *= -1.0  
+	prepare HBAR_AIBC_aabb[a,a1,j,b2] += t1ppqq[a,a1,j,b2] 
+    ENDDO a 
+
+ENDPARDO i1, a1, b2, j 
+endif
+
+#     BBAA spin combination. 
+#     ---------------------- 
+
+ENDPROC CCPT_HBAR_AIBC   
+
+PROC CCPT_HBAR_JKIA   
+#     --------------
+
+#     There are four spin cases to compute:
+#     1. H^{jk}_{ia) --> HBAR_JKIA_aaaa  
+#     2. H^{JK}_{IA) --> HBAR_JKIA_bbbb  
+#     3. H^{Jk}_{Ia) --> HBAR_JKIA_bbaa  
+#     4. H^{jK}_{iA) --> HBAR_JKIA_aabb  
+
+#     Note that since I 'always' store arrays in (11|22) form the 
+#     notation, although valid, is slightly confusing. The 
+#     storage pattern is therefore array(a,b,i,c).   
+
+#    ------------------------------------------------------------------------
+
+#     AAAA spin combination. 
+#     ---------------------- 
+
+PARDO i, i1, i2, a 
+
+    request VSpipi[i,i1,a,i2]   
+    tpppp[i,i1,a,i2] = VSpipi[i,i1,a,i2] 
+
+if has_singles == 1.0
+    DO a1 
+	request VSpipi[a1,i1,a,i2]   
+	t1pppp[i,i1,a,i2] = VSpipi[a1,i1,a,i2]*St1a[a1,i] 
+	tpppp[i,i1,a,i2] += t1pppp[i,i1,a,i2] 
+    ENDDO a1 
+endif
+
+    t1pppp[i1,i,i2,a]                 = tpppp[i,i1,a,i2] 
+    prepare HBAR_JKIA_aaaa[i1,i,i2,a] = t1pppp[i1,i,i2,a] 
+
+ENDPARDO i, i1, i2, a 
+
+#     BBBB spin combination. 
+#     ---------------------- 
+
+#     AABB spin combination. 
+#     ---------------------- 
+
+PARDO i, i1, j2, b 
+
+    request Vpiqj[i,i1,b,j2]   
+    tppqq[i,i1,b,j2] = Vpiqj[i,i1,b,j2] 
+
+if has_singles == 1.0
+    DO a1 
+	request Vpiqj[a1,i1,b,j2]   
+	t1ppqq[i,i1,b,j2] = Vpiqj[a1,i1,b,j2]*St1a[a1,i] 
+	tppqq[i,i1,b,j2] += t1ppqq[i,i1,b,j2] 
+    ENDDO a1 
+endif
+
+    t1ppqq[i1,i,j2,b]                 = tppqq[i,i1,b,j2] 
+    prepare HBAR_JKIA_aabb[i1,i,j2,b] = t1ppqq[i1,i,j2,b] 
+
+ENDPARDO i, i1, j2, b 
+
+#     BBAA spin combination. 
+#     ---------------------- 
+
+ENDPROC CCPT_HBAR_JKIA   
+
+PROC CCPT_HBAR_IAJK   
+#     --------------
+
+#     There are four spin cases to compute:
+#     1. H^{ia)_{jk} --> HBAR_IAJK_aaaa  
+#     1. H^{IA)_{JK} --> HBAR_IAJK_bbbb  
+#     1. H^{Ia)_{Jk} --> HBAR_IAJK_bbaa  
+#     1. H^{iA)_{jK} --> HBAR_IAJK_aabb  
+
+#     Note that since I 'always' store arrays in (11|22) form the 
+#     notation, although valid, is slightly confusing. The 
+#     storage pattern is therefore array(a,b,i,c).   
+
+#    ------------------------------------------------------------------------
+
+#     Form the two-particle intermediates needed. 
+#     ------------------------------------------- 
+
+PARDO i1, a1, a, i
+
+    request Viaai[i1,a1,a,i]  # +
+    request Vaaii[a,a1,i1,i]  # -
+    Tiaai[i1,a1,a,i]  = Vaaii[a,a1,i1,i]
+    Tiaai[i1,a1,a,i] -= Viaai[i1,a1,a,i]
+    Tiaai[i1,a1,a,i] *= -1.0
+
+    prepare WHIAAI[i1,a1,a,i] = Tiaai[i1,a1,a,i]
+
+ENDPARDO i1, a1, a, i
+
+PARDO j1, b1, b, j
+
+    request Vjbbj[j1,b1,b,j]  # +
+    request Vbbjj[b,b1,j1,j]  # -
+    Tjbbj[j1,b1,b,j]  = Vbbjj[b,b1,j1,j]
+    Tjbbj[j1,b1,b,j] -= Vjbbj[j1,b1,b,j]
+    Tjbbj[j1,b1,b,j] *= -1.0
+
+    prepare WHJBBJ[j1,b1,b,j] = Tjbbj[j1,b1,b,j]
+
+ENDPARDO j1, b1, b, j 
+
+PARDO i, i1, b, b1
+
+    request Vbbii[b,b1,i,i1] 
+    Tiibb[i,i1,b,b1]  = Vbbii[b,b1,i,i1]
+    Tiibb[i,i1,b,b1] *= -1.0
+
+    prepare WHIIBB[i,i1,b,b1] = Tiibb[i,i1,b,b1]
+
+ENDPARDO i, i1, b, b1 
+
+PARDO j1, j, a, a1
+
+    request Vaajj[a,a1,j1,j] 
+    Tjjaa[j1,j,a,a1]  = Vaajj[a,a1,j1,j]
+    Tjjaa[j1,j,a,a1] *= -1.0
+
+
+    prepare WHJJAA[j1,j,a,a1] = Tjjaa[j1,j,a,a1]
+
+ENDPARDO j1, j, a, a1 
+
+PARDO i, a, b, j
+
+    request Viabj[i,a,b,j] 
+    Tiabj[i,a,b,j] = Viabj[i,a,b,j]
+
+    prepare WHIABJ[i,a,b,j] = Tiabj[i,a,b,j]
+
+ENDPARDO i, a, b, j 
+
+PARDO j, b, a, i
+
+    request Viabj[i,a,b,j] 
+    Tjbai[j,b,a,i] = Viabj[i,a,b,j]
+
+    prepare WHJBAI[j,b,a,i] = Tjbai[j,b,a,i]
+
+ENDPARDO j, b, a, i 
+
+server_barrier 
+
+#     AAAA spin combination. 
+#     ---------------------- 
+
+PARDO a, i, i1, i2
+
+# diagram 1
+    request VSpipi[i,i1,a,i2] 
+    Tiiai[i,i1,a,i2]  = VSpipi[i,i1,a,i2]
+
+# diagram 2
+if has_singles == 1.0
+    DO i3
+	request VSpipi[i,i1,i3,i2] 
+	T1iiai[i,i1,a,i2] = VSpipi[i,i1,i3,i2]*St1a[a,i3]
+	Tiiai[i,i1,a,i2] -= T1iiai[i,i1,a,i2]
+    ENDDO i3
+endif
+
+    prepare HBAR_IAJK_aaaa[i,i1,a,i2] += Tiiai[i,i1,a,i2]
+
+ENDPARDO a, i, i1, i2
+
+PARDO i, i1, a, i2
+
+    Tiiai[i,i1,a,i2]  = 0.0  
+    TSiiai[i,i2,a,i1] = 0.0
+
+    DO a1
+
+	request T2aa[a,i1,a1,i2] 
+	request WHIAAI[i,a1,a,i2] 
+
+# diagram 3
+	T1iiai[i,i1,a,i2]  = T2aa[a,i1,a1,i2]*fock_a[i,a1]
+	Tiiai[i,i1,a,i2]  -= T1iiai[i,i1,a,i2]
+
+# diagram 2
+if has_singles == 1.0
+	T1iiai[i,i1,a,i2]  = WHIAAI[i,a1,a,i2]*St1a[a1,i1]
+	T2iiai[i,i2,a,i1]  = T1iiai[i,i1,a,i2]
+	TSiiai[i,i2,a,i1] -= T2iiai[i,i2,a,i1]
+endif
+
+	Tiiai[i,i1,a,i2]  += T1iiai[i,i1,a,i2]
+
+    ENDDO a1
+
+    prepare HBAR_IAJK_aaaa[i,i1,a,i2] += Tiiai[i,i1,a,i2]
+if has_singles == 1.0
+    prepare HBAR_IAJK_aaaa[i,i2,a,i1] += TSiiai[i,i2,a,i1]
+endif
+
+ENDPARDO i, i1, a, i2
+
+# diagram 4
+PARDO i, a, a1, a2
+
+    request VSaaai[a2,a,a1,i]  # +
+
+    DO i1
+	DO i2
+
+	    request T2aa[a1,i1,a2,i2] 
+
+	    tpppp[a1,i1,a2,i2]  = T2aa[a1,i1,a2,i2] 
+
+	    T1iiai[i,i1,a,i2]   = tpppp[a1,i1,a2,i2]*VSaaai[a2,a,a1,i]
+	    T1iiai[i,i1,a,i2]  *= 0.5
+	    prepare HBAR_IAJK_aaaa[i,i1,a,i2] += T1iiai[i,i1,a,i2]
+
+	ENDDO i2
+    ENDDO i1
+
+ENDPARDO i, a, a1, a2
+
+# diagram 4
+PARDO i, i1, a, i2
+
+    Tiiai[i,i1,a,i2]  = 0.0  
+    TSiiai[i,i2,a,i1] = 0.0
+
+    DO a1
+    DO i3
+
+	request T2aa[a,i2,a1,i3] 
+	request VSpipi[i1,i,a1,i3]    # +
+
+	T1iiai[i,i1,a,i2]   = VSpipi[i1,i,a1,i3]*T2aa[a,i2,a1,i3]
+	T2iiai[i,i2,a,i1]   = T1iiai[i,i1,a,i2]
+	Tiiai[i,i1,a,i2]   += T1iiai[i,i1,a,i2]
+	TSiiai[i,i2,a,i1]  -= T2iiai[i,i2,a,i1]
+
+    ENDDO i3
+    ENDDO a1
+
+    prepare HBAR_IAJK_aaaa[i,i1,a,i2] += Tiiai[i,i1,a,i2]
+    prepare HBAR_IAJK_aaaa[i,i2,a,i1] += TSiiai[i,i2,a,i1]
+
+ENDPARDO i, i1, a, i2
+
+# diagram 4
+PARDO i, i1, a, i2
+
+    Tiiai[i,i1,a,i2]  = 0.0  
+    TSiiai[i,i2,a,i1] = 0.0
+
+    DO b
+    DO j
+
+	request T2ab[a,i2,b,j] 
+	request Vpiqj[i1,i,b,j]     # +
+
+	T1iiai[i,i1,a,i2]  = Vpiqj[i1,i,b,j]*T2ab[a,i2,b,j]
+	Tiiai[i,i1,a,i2]  += T1iiai[i,i1,a,i2]
+
+	T2iiai[i,i2,a,i1]  = T1iiai[i,i1,a,i2]
+	TSiiai[i,i2,a,i1] -= T2iiai[i,i2,a,i1]
+
+    ENDDO j
+    ENDDO b
+
+    prepare HBAR_IAJK_aaaa[i,i1,a,i2] += Tiiai[i,i1,a,i2]
+    prepare HBAR_IAJK_aaaa[i,i2,a,i1] += TSiiai[i,i2,a,i1]
+
+ENDPARDO i, i1, a, i2
+
+#     AABB spin combination. 
+#     ---------------------- 
+
+PARDO i, i1, b, j
+
+# diagram 1
+    request Vpiqj[i,i1,b,j] 
+    Tiibj[i,i1,b,j] = Vpiqj[i,i1,b,j]
+
+    DO a
+
+	request T2ab[a,i1,b,j] 
+	request WHIABJ[i,a,b,j] 
+
+# diagram 3
+	T1iibj[i,i1,b,j] = T2ab[a,i1,b,j]*fock_a[i,a]
+	Tiibj[i,i1,b,j] += T1iibj[i,i1,b,j]
+
+#diagram 2?
+if has_singles == 1.0
+	T1iibj[i,i1,b,j] = WHIABJ[i,a,b,j]*St1a[a,i1]
+	Tiibj[i,i1,b,j] += T1iibj[i,i1,b,j]
+endif
+
+# diagram 4
+	DO b1
+
+	    request T2ab[a,i1,b1,j] 
+	    request Vbbai[b1,b,a,i]   
+
+	    tppqq[a,i1,b1,j]  = T2ab[a,i1,b1,j] 
+
+	    T1iibj[i,i1,b,j]  = Vbbai[b1,b,a,i]*tppqq[a,i1,b1,j]
+	    Tiibj[i,i1,b,j]  += T1iibj[i,i1,b,j]
+
+	ENDDO b1
+
+# diagram 4
+	DO i2
+
+	    request T2ab[a,i2,b,j] 
+	    request VSpipi[i1,i,a,i2]   # +
+
+	    T1iibj[i,i1,b,j] = VSpipi[i1,i,a,i2]*T2ab[a,i2,b,j]
+	    Tiibj[i,i1,b,j] += T1iibj[i,i1,b,j]
+
+	ENDDO i2
+
+# diagram 4
+	DO j1
+
+	    request T2ab[a,i1,b,j1] 
+	    request Vpiqj[a,i,j,j1]      # +
+
+	    T1iibj[i,i1,b,j] = Vpiqj[a,i,j,j1]*T2ab[a,i1,b,j1]
+	    Tiibj[i,i1,b,j] -= T1iibj[i,i1,b,j]
+
+	ENDDO j1
+
+    ENDDO a
+
+# diagram 2
+if has_singles == 1.0
+    DO j1
+
+	request Vpiqj[i,i1,j1,j] 
+	request HBAR_iijj[i,i1,j1,j]
+
+	T1iibj[i,i1,b,j] = HBAR_iijj[i,i1,j1,j]*St1b[b,j1]
+	Tiibj[i,i1,b,j] -= T1iibj[i,i1,b,j]
+
+    ENDDO j1
+endif
+
+    DO b1
+
+# diagram 2
+if has_singles == 1.0
+	request WHIIBB[i,i1,b,b1] 
+	T1iibj[i,i1,b,j] = WHIIBB[i,i1,b,b1]*St1b[b1,j]
+	Tiibj[i,i1,b,j] -= T1iibj[i,i1,b,j]
+endif
+
+# diagram 4
+	DO j2
+
+	    request T2bb[b1,j2,b,j] 
+	    request Vpiqj[i1,i,b1,j2]    # +
+
+	    T1iibj[i,i1,b,j] = Vpiqj[i1,i,b1,j2]*T2bb[b1,j2,b,j]
+	    Tiibj[i,i1,b,j] += T1iibj[i,i1,b,j]
+
+	ENDDO j2
+
+    ENDDO b1
+
+    prepare HBAR_IAJK_aabb[i,i1,b,j] = Tiibj[i,i1,b,j]
+
+ENDPARDO i, i1, b, j
+
+#     BBAA spin combination. 
+#     ---------------------- 
+
+#     BBBB spin combination. 
+#     ---------------------- 
+
+server_barrier 
+
+ENDPROC CCPT_HBAR_IAJK   
+
+PROC CCPT_HBAR_AJIB     
+#     --------------
+
+#     There are four spin cases to compute:
+#     1. H^{aj)_{ib} --> HBAR_AJIB_aaaa  
+#     2. H^{AJ)_{IB} --> HBAR_AJIB_bbbb  
+#     3. H^{aJ)_{iB} --> HBAR_AJIB_aabb  
+#     4. H^{Aj)_{Ib} --> HBAR_AJIB_bbaa  
+#     5. H^{Aj)_{iB} --> HBAR_AJIB_iibb   
+#     6. H^{aJ)_{Ib} --> HBAR_AJIB_jjaa   
+
+#     Note that since I 'always' store arrays in (11|22) form the 
+#     notation, although valid, is slightly confusing. The 
+#     storage pattern is therefore array(a,b,i,c).   
+
+#    ------------------------------------------------------------------------
+
+#     AAAA spin combination. 
+#     ---------------------- 
+
+# diagram 1
+PARDO i1, a1, a, i
+
+    request Viaai[i1,a1,a,i]  
+    request Vaaii[a,a1,i1,i]  
+    Tiaai[i1,a1,a,i]                   = Vaaii[a,a1,i1,i]
+    Tiaai[i1,a1,a,i]                  -= Viaai[i1,a1,a,i]
+    Tiaai[i1,a1,a,i]                  *= -1.0
+    prepare HBAR_AJIB_aaaa[i1,a1,a,i] += Tiaai[i1,a1,a,i]
+
+ENDPARDO i1, a1, a, i
+
+# diagram 2
+if has_singles == 1.0
+PARDO i, i1, a1, i2  
+
+    request VSpipi[a1,i1,i,i2] 
+
+    DO a
+	T1iaai[i1,a1,a,i]                  = VSpipi[a1,i1,i,i2]*St1a[a,i2]
+	T1iaai[i1,a1,a,i]                 *= -1.0  
+	prepare HBAR_AJIB_aaaa[i1,a1,a,i] += T1iaai[i1,a1,a,i]
+    ENDDO a
+
+ENDPARDO i, i1, a1, i2
+endif
+
+# diagram 2
+if has_singles == 1.0
+PARDO i1, a1, a, a2  
+
+    request VSaaai[a2,a,a1,i1] 
+
+    DO i 
+	T2iaai[i,a,a1,i1]                  = VSaaai[a2,a,a1,i1]*St1a[a2,i]
+	T1iaai[i1,a1,a,i]                  = T2iaai[i,a,a1,i1]
+	prepare HBAR_AJIB_aaaa[i1,a1,a,i] += T1iaai[i1,a1,a,i]
+    ENDDO i
+
+ENDPARDO i1, a1, a, a2  
+endif
+
+# diagram 3
+PARDO i, a, a2, i2  
+
+    request T2aa[a2,i,a,i2]  
+    T1aiai[a2,i,a,i2]   = T2aa[a2,i,a,i2]
+
+    DO a1 
+    DO i1
+
+	request VSpipi[a2,i2,a1,i1]  
+	Taiai[a1,i2,a2,i1]                 = VSpipi[a2,i2,a1,i1]
+	T1iaai[i1,a1,a,i]                  = T1aiai[a2,i,a,i2]*Taiai[a1,i2,a2,i1]
+	T1iaai[i1,a1,a,i]                 *= -1.0  
+	prepare HBAR_AJIB_aaaa[i1,a1,a,i] += T1iaai[i1,a1,a,i]
+
+    ENDDO i1
+    ENDDO a1
+
+ENDPARDO i, a, a2, i2
+
+# diagram 3
+PARDO i1, a1, b, j
+
+    request Vpiqj[a1,i1,b,j]  
+
+    DO a
+    DO i
+
+	request T2ab[a,i,b,j]  
+	T1iaai[i1,a1,a,i]                  = Vpiqj[a1,i1,b,j]*T2ab[a,i,b,j]
+	prepare HBAR_AJIB_aaaa[i1,a1,a,i] += T1iaai[i1,a1,a,i]
+
+    ENDDO i
+    ENDDO a
+
+ENDPARDO i1, a1, b, j
+
+#     BBBB spin combination. 
+#     ---------------------- 
+
+#     AABB spin combination. 
+#     ---------------------- 
+
+# diagram 1
+PARDO i, a, b, j
+
+    request Viabj[i,a,b,j] 
+    Tiabj[i,a,b,j]                  = Viabj[i,a,b,j]
+    prepare HBAR_AJIB_aabb[i,a,b,j]+= Tiabj[i,a,b,j]
+
+ENDPARDO i, a, b, j 
+
+# diagram 2
+if has_singles == 1.0
+PARDO i, a, b, b1  
+
+    request Vbbai[b1,b,a,i]  
+
+    DO j
+
+	Tjbai[j,b,a,i]                   = Vbbai[b1,b,a,i]*St1b[b1,j]
+	T2jbai[j,b,a,i]                  = Tjbai[j,b,a,i]
+	Tiabj[i,a,b,j]                   = Tjbai[j,b,a,i]  
+	prepare HBAR_AJIB_aabb[i,a,b,j] += Tiabj[i,a,b,j]
+
+    ENDDO j
+
+ENDPARDO i, a, b, b1  
+
+# diagram 2
+PARDO b, i, a, j
+
+    Tiabj[i,a,b,j]  = 0.0  
+
+    DO j1
+
+	request Vpiqj[a,i,j,j1]  
+	T1iabj[i,a,b,j] = Vpiqj[a,i,j,j1]*St1b[b,j1]
+	Tiabj[i,a,b,j] -= T1iabj[i,a,b,j]
+
+    ENDDO j1
+
+    prepare HBAR_AJIB_aabb[i,a,b,j] += Tiabj[i,a,b,j]
+
+ENDPARDO b, i, a, j 
+endif
+
+# diagram 3
+PARDO j, b, b1, j1
+
+    request T2bb[b1,j,b,j1]  
+
+    T2bjbj[b1,j,b,j1]  = T2bb[b1,j,b,j1]
+
+    DO i
+    DO a
+
+	request Vpiqj[a,i,b1,j1]  
+	Tiabj[i,a,b,j]                   = T2bjbj[b1,j,b,j1]*Vpiqj[a,i,b1,j1]
+	Tiabj[i,a,b,j]                  *= -1.0  
+	prepare HBAR_AJIB_aabb[i,a,b,j] += Tiabj[i,a,b,j]
+
+    ENDDO a
+    ENDDO i
+
+ENDPARDO j, b, b1, j1 
+
+# diagram 3
+PARDO i1, a1, b, j
+
+    request T2ab[a1,i1,b,j]  
+
+    DO a
+    DO i
+
+	request VSpipi[a1,i1,a,i]  
+	Tiabj[i,a,b,j]                   = T2ab[a1,i1,b,j]*VSpipi[a1,i1,a,i]
+	prepare HBAR_AJIB_aabb[i,a,b,j] += Tiabj[i,a,b,j]
+
+    ENDDO i
+    ENDDO a
+
+ENDPARDO i1, a1, b, j 
+
+#     BBAA spin combination. 
+#     ---------------------- 
+
+#     ABAB spin combination. 
+#     ---------------------- 
+
+# diagram 1
+PARDO i1, b1, b, i
+
+    request Vbbii[b,b1,i1,i]  
+    Tiibb[i1,i,b,b1]                   = Vbbii[b,b1,i1,i]
+    Tiibb[i1,i,b,b1]                  *= -1.0
+    prepare HBAR_AJIB_iibb[i1,i,b,b1] += Tiibb[i1,i,b,b1]
+
+ENDPARDO i1, b1, b, i
+
+#diagram 2
+if has_singles == 1.0
+PARDO b1, b, a1, i1  
+
+    request Vbbai[b1,b,a1,i1]  
+
+    DO i
+	T1iibb[i1,i,b,b1]                  = Vbbai[b1,b,a1,i1]*St1a[a1,i]
+	T2iibb[i1,i,b,b1]                  = T1iibb[i1,i,b,b1]  
+	T2iibb[i1,i,b,b1]                 *= -1.0 
+	prepare HBAR_AJIB_iibb[i1,i,b,b1] += T2iibb[i1,i,b,b1]
+    ENDDO i
+
+ENDPARDO b1, b, a1, i1  
+
+#diagram 2
+PARDO i1, b1, b, i
+
+    Tiibb[i1,i,b,b1] = 0.0 
+
+    DO j1
+	request Vpiqj[i,i1,b1,j1]  
+	T1iibb[i1,i,b,b1] = Vpiqj[i,i1,b1,j1]*St1b[b,j1]
+	Tiibb[i1,i,b,b1] += T1iibb[i1,i,b,b1] 
+    ENDDO j1
+
+    prepare HBAR_AJIB_iibb[i1,i,b,b1] += Tiibb[i1,i,b,b1]
+
+ENDPARDO i1, b1, b, i
+endif
+
+#diagram 3
+PARDO i, b, j1, a1  
+
+    request T2ab[a1,i,b,j1]  
+    T1aibj[a1,i,b,j1]  = T2ab[a1,i,b,j1]
+
+    DO i1
+    DO b1
+
+	request Vpiqj[a1,i1,b1,j1]  
+	T1iibb[i1,i,b,b1]                  = T1aibj[a1,i,b,j1]*Vpiqj[a1,i1,b1,j1]
+	prepare HBAR_AJIB_iibb[i1,i,b,b1] += T1iibb[i1,i,b,b1]
+
+    ENDDO b1
+    ENDDO i1
+
+ENDPARDO i, b, j1, a1  
+
+#     BABA spin combination. 
+#     ---------------------- 
+if has_singles == 1.0
+PARDO j1, a1, a, b1  
+
+    request Vaabj[a1,a,b1,j1]  
+
+    DO j
+	T2jjaa[j1,j,a,a1]                  = Vaabj[a1,a,b1,j1]*St1b[b1,j]
+	prepare NJJAA[j1,j,a,a1]          += T2jjaa[j1,j,a,a1]
+    ENDDO j
+
+ENDPARDO j1, a1, a, b1  
+endif
+
+ENDPROC CCPT_HBAR_AJIB     
+
+PROC CCPT_HBAR_ABCI    
+#     --------------
+
+#     There are four spin cases to compute:
+#     1. H^{ab)_{ci} --> HBAR_ABCI_aaaa  
+#     2. H^{AB)_{CI} --> HBAR_ABCI_bbbb  
+#     3. H^{aB)_{cI} --> HBAR_ABCI_aabb  
+#     4. H^{Ab)_{Ci} --> HBAR_ABCI_bbaa  
+
+#     Note that since I 'always' store arrays in (11|22) form the 
+#     notation, although valid, is slightly confusing. The 
+#     storage pattern is therefore array(a,b,i,c).   
+
+#    ------------------------------------------------------------------------
+
+#     AAAA spin component. 
+#     -------------------- 
+
+#     BBBB spin component. 
+#     -------------------- 
+
+#     AABB spin component. 
+#     -------------------- 
+
+# diagram 1
+PARDO a, a1, b, j 
+
+    request Vaabj[a,a1,b,j]   
+    prepare HBAR_ABCI_aabb[a,a1,b,j] += Vaabj[a,a1,b,j] 
+
+ENDPARDO a, a1, b, j 
+
+#diagram 4
+PARDO a, a1, a3, i2
+
+    request VSaaai[a,a1,a3,i2]  
+
+    DO b
+    DO j
+
+	request T2ab[a3,i2,b,j] 
+	Tppqq[a1,a,b,j]                   = VSaaai[a,a1,a3,i2]*T2ab[a3,i2,b,j]
+	prepare HBAR_ABCI_aabb[a1,a,b,j] += Tppqq[a1,a,b,j]
+
+    ENDDO j
+    ENDDO b
+
+ENDPARDO a, a1, a3, i2
+
+#diagram 4
+PARDO a, a1, b, j
+
+    request Vaabj[a,a1,b,j] 
+
+    DO b1
+    DO j1
+
+	request T2bb[b1,j1,b,j] 
+	Tppqq[a1,a,b1,j1]                   = Vaabj[a,a1,b,j]*T2bb[b1,j1,b,j]
+	prepare HBAR_ABCI_aabb[a1,a,b1,j1] += Tppqq[a1,a,b1,j1]
+
+    ENDDO j1
+    ENDDO b1
+
+ENDPARDO a, a1, b, j
+
+
+PARDO a1, a, j, b
+
+    Tppqq[a1,a,b,j] = 0.0
+
+    DO i
+
+	request T2ab[a1,i,b,j] 
+	request Viabj[i,a,b,j] 
+
+# diagram 3
+	T1ppqq[a1,a,b,j] = T2ab[a1,i,b,j]*fock_a[i,a]
+	Tppqq[a1,a,b,j] -= T1ppqq[a1,a,b,j]
+
+# diagram 2
+if has_singles == 1.0
+	T2ppqq[a1,a,b,j] = Viabj[i,a,b,j]*St1a[a1,i]
+	Tppqq[a1,a,b,j] -= T2ppqq[a1,a,b,j]
+endif
+
+    ENDDO i
+
+    prepare HBAR_ABCI_aabb[a1,a,b,j] += Tppqq[a1,a,b,j]
+
+ENDPARDO a1, a, j, b
+
+# diagram 2
+if has_singles == 1.0
+PARDO a, a1, j, j1
+
+    request WHJJAA[j1,j,a1,a] 
+    tqqpp[j1,j,a1,a]  = WHJJAA[j1,j,a1,a] 
+
+    DO b
+	Tppqq[a1,a,b,j]                   = tqqpp[j1,j,a1,a]*St1b[b,j1]
+	prepare HBAR_ABCI_aabb[a1,a,b,j] += Tppqq[a1,a,b,j]
+    ENDDO b
+
+ENDPARDO a, a1, j, j1
+endif
+
+# diagram 4
+PARDO a1, b, j1, i 
+
+    request T2ab[a1,i,b,j1] 
+    t1ppqq[a1,i,b,j1] = T2ab[a1,i,b,j1]  
+    t0pqqp[a1,b,j1,i] = t1ppqq[a1,i,b,j1]
+
+    DO a
+    DO j
+#   
+	request Vpiqj[j1,j,a,i] 
+	tqpqp[j1,i,j,a] = Vpiqj[j1,j,a,i]
+	Tppqq[a1,a,b,j] = t0pqqp[a1,b,j1,i]*tqpqp[j1,i,j,a] 
+	prepare HBAR_ABCI_aabb[a1,a,b,j] += Tppqq[a1,a,b,j]
+
+    ENDDO j 
+    ENDDO a 
+
+ENDPARDO a1, b, j1, i 
+
+# diagram 4
+PARDO a, b1, b, i
+
+    request Vbbai[b,b1,a,i]   
+
+    DO j
+    DO a1
+	request T2ab[a1,i,b,j] 
+	Tppqq[a1,a,b1,j]                   = T2ab[a1,i,b,j]*Vbbai[b,b1,a,i]
+	Tppqq[a1,a,b1,j]                  *= -1.0
+	prepare HBAR_ABCI_aabb[a1,a,b1,j] += Tppqq[a1,a,b1,j]
+    ENDDO a1
+    ENDDO j
+
+ENDPARDO a, b1, b, i
+
+
+#     Done AABB spin component. 
+#     ------------------------- 
+
+#     BBAA spin component. 
+#     -------------------- 
+
+#     Done AABB spin component. 
+#     ------------------------- 
+
+server_barrier
+
+ENDPROC CCPT_HBAR_ABCI    
+
+PROC CCPT_AO4VIR
+
+server_barrier
+
+PARDO j,sigma
+
+    t1xj[sigma,j]=0.0
+
+    do b
+	txj[sigma,j]=St1b[b,j]*ca[sigma,b]
+	t1xj[sigma,j]+=txj[sigma,j]
+    enddo b
+# 
+    put Mxj[sigma,j]=t1xj[sigma,j]
+
+ENDPARDO j, sigma
+
+PARDO i, sigma
+
+    t1xi[sigma,i]=0.0
+
+    do a
+	txi[sigma,i]=St1a[a,i]*ca[sigma,a]
+	t1xi[sigma,i]+=txi[sigma,i]
+    enddo a
+
+    put Mxi[sigma,i]=t1xi[sigma,i]
+
+ENDPARDO i, sigma
+
+server_barrier
+
+#    Contract AOINT with half back transformed Amplitudes
+#    ----------------------------------------------------
+
+PARDO mu,lambda,nu
+
+    allocate Lxxxj[mu,lambda,nu,*]
+    allocate Lxxxi[mu,lambda,nu,*]
+
+    DO sigma
+
+	execute compute_integral_batch aoint[mu,lambda,nu,sigma]
+
+	DO j
+
+	    get Mxj[sigma,j]
+
+	    tmxxxj[mu,lambda,nu,j]=aoint[mu,lambda,nu,sigma]*Mxj[sigma,j]
+	    Lxxxj[mu,lambda,nu,j]+=tmxxxj[mu,lambda,nu,j]
+
+	ENDDO j
+###
+	DO i
+
+	    get Mxi[sigma,i]
+
+	    tmxxxi[mu,lambda,nu,i]=aoint[mu,lambda,nu,sigma]*Mxi[sigma,i]
+	    Lxxxi[mu,lambda,nu,i]+=tmxxxi[mu,lambda,nu,i]
+
+	ENDDO i
+###
+    enddo sigma
+
+    DO j
+	prepare Mxxxj[mu,lambda,nu,j]=Lxxxj[mu,lambda,nu,j]
+    ENDDO j
+    DO i
+	prepare Mxxxi[mu,lambda,nu,i]=Lxxxi[mu,lambda,nu,i]
+    ENDDO i
+
+    deallocate Lxxxi[mu,lambda,nu,*]
+    deallocate Lxxxj[mu,lambda,nu,*]
+
+ENDPARDO mu,lambda,nu
+
+server_barrier
+
+#  2ND STAGE OF TRANSFORMATION
+#  --------------------------- 
+
+PARDO mu, nu, j 
+
+    allocate Lxxbj[mu,nu,*,j]
+
+    DO lambda  
+
+	request Mxxxj[mu,nu,lambda,j] 
+
+	DO b
+
+	    tmxxbj[mu,nu,b,j]=Mxxxj[mu,nu,lambda,j]*ca[lambda,b]
+	    lxxbj[mu,nu,b,j]+=tmxxbj[mu,nu,b,j]
+
+	ENDDO b
+    ENDDO lambda  
+
+    DO b
+	prepare Mxxbj[mu,nu,b,j]=lxxbj[mu,nu,b,j]
+    ENDDO b
+
+    deallocate Lxxbj[mu,nu,*,j]
+
+ENDPARDO mu, nu, j 
+
+PARDO mu, nu, i 
+
+    allocate Lxxai[mu,nu,*,i]
+
+    DO lambda  
+
+	request Mxxxi[mu,nu,lambda,i] 
+
+	DO a
+
+	    tmxxai[mu,nu,a,i]=Mxxxi[mu,nu,lambda,i]*ca[lambda,a]
+	    lxxai[mu,nu,a,i]+=tmxxai[mu,nu,a,i]
+
+	ENDDO a
+    ENDDO lambda  
+
+    DO a
+	prepare Mxxai[mu,nu,a,i]=lxxai[mu,nu,a,i]
+    ENDDO a
+
+    deallocate Lxxai[mu,nu,*,i]
+
+ENDPARDO mu, nu, i 
+
+server_barrier
+
+#  END 2ND STAGE OF TRANSFORMATION
+#  ------------------------------- 
+
+pardo mu, b, j
+
+    allocate Lxabj[mu,*,b,j]
+
+    do lambda
+
+	request Mxxbj[mu,lambda,b,j] 
+
+	do a
+
+	    tmxabj[mu,a,b,j]=Mxxbj[mu,lambda,b,j]*ca[lambda,a]
+	    lxabj[mu,a,b,j]+=tmxabj[mu,a,b,j]
+
+	enddo a
+
+    enddo lambda
+
+    do a
+	prepare Mxabj[mu,a,b,j]=lxabj[mu,a,b,j]
+    enddo a
+
+    deallocate Lxabj[mu,*,b,j]
+
+endpardo mu, b, j
+
+pardo mu, a, i
+
+    allocate Lxbai[mu,*,a,i]
+
+    do lambda
+
+	request Mxxai[mu,lambda,a,i] 
+
+	do b
+
+	    tmxbai[mu,b,a,i]=Mxxai[mu,lambda,a,i]*ca[lambda,b]
+	    lxbai[mu,b,a,i]+=tmxbai[mu,b,a,i]
+
+	enddo b
+
+    enddo lambda
+
+    do b
+	prepare Mxbai[mu,b,a,i]=lxbai[mu,b,a,i]
+    enddo b
+
+    deallocate Lxbai[mu,*,a,i]
+
+endpardo mu, a, i
+
+pardo mu, a, i
+
+    allocate Lxaai[mu,*,a,i]
+
+    do lambda
+
+	request Mxxai[mu,lambda,a,i] 
+
+	do a1
+
+	tmxaai[mu,a1,a,i]=Mxxai[mu,lambda,a,i]*ca[lambda,a1]
+	lxaai[mu,a1,a,i]+=tmxaai[mu,a1,a,i]
+
+	enddo a1
+
+    enddo lambda
+
+    do a1
+	prepare Mxaai[mu,a1,a,i]=lxaai[mu,a1,a,i]
+    enddo a1
+
+    deallocate Lxaai[mu,*,a,i]
+
+endpardo mu, a, i
+
+pardo mu, b, j
+
+    allocate Lxbbj[mu,*,b,j]
+
+    do lambda
+
+	request Mxxbj[mu,lambda,b,j] 
+
+	do b1
+
+	tmxbbj[mu,b1,b,j]=Mxxbj[mu,lambda,b,j]*ca[lambda,b1]
+	lxbbj[mu,b1,b,j]+=tmxbbj[mu,b1,b,j]
+
+	enddo b1
+
+    enddo lambda
+
+    do b1
+	prepare Mxbbj[mu,b1,b,j]=lxbbj[mu,b1,b,j]
+    enddo b1
+
+    deallocate Lxbbj[mu,*,b,j]
+
+endpardo mu, b, j
+
+server_barrier
+
+#  END 3RD STAGE OF TRANSFORMATION
+#  ------------------------------- 
+
+pardo a, b, j
+
+    allocate Laabj[*,a,b,j]
+
+    do mu
+
+	request Mxabj[mu,a,b,j] 
+
+	do a1
+
+	    tmaabj[a1,a,b,j]=Mxabj[mu,a,b,j]*ca[mu,a1]
+	    Laabj[a1,a,b,j]+=tmaabj[a1,a,b,j]
+
+	enddo a1
+
+    enddo mu
+
+    do a1
+	prepare HBAR_ABCI_aabb[a1,a,b,j]+=Laabj[a1,a,b,j]
+    enddo a1
+
+    deallocate Laabj[*,a,b,j]
+
+endpardo a, b, j
+
+#    ALPHA-ALPHA spin combination
+
+ENDPROC CCPT_AO4VIR
+
+PROC form_CCPT_H
+
+# ---------------------------------------------------------
+#
+# LHBAR_ii JNB verified A3
+# LHBAR_ia JNB verified A3
+# LHBAR_jb JNB verified A3
+# LHBAR_aa JNB verified A3
+# HBAR_iiii JNB verified A3
+# HBAR_iijj JNB verified A3
+# HBAR_JKIA_aaaa JNB verified A3
+# HBAR_JKIA_aabb JNB verified A3
+# HBAR_IAJK_aaaa JNB verified A3
+# HBAR_IAJK_aabb JNB verified A3
+# HBAR_AJIB_aaaa JNB verified A3
+# HBAR_AJIB_aabb JNB verified A3
+# HBAR_AJIB_iibb JNB verified A3
+# HBAR_AIBC_aaaa JNB verified A3
+# HBAR_AIBC_aabb JNB verified A3
+# HBAR_ABCI_aaaa JNB verified A3
+# HBAR_ABCI_aabb JNB verified A3
+#
+# ---------------------------------------------------------
+
+print "-- Entering Hbar formation"
+
+server_barrier
+allocate LHBAR_ii[*,*]
+allocate LHBAR_ia[*,*]
+allocate LHBAR_jb[*,*]
+allocate LHBAR_aa[*,*]
+pardo i,i1
+    Tii[i,i1] = 0.0
+    put HBAR_ii[i,i1] = Tii[i,i1]
+endpardo i,i1
+pardo i,a
+    Tia[i,a] = 0.0
+    put HBAR_ia[i,a] = Tia[i,a]
+endpardo i,a
+pardo j,b
+    Tjb[j,b] = 0.0
+    put HBAR_jb[j,b] = Tjb[j,b]
+endpardo j,b
+pardo a,a1
+    Taa[a,a1] = 0.0
+    put HBAR_aa[a,a1] = Taa[a,a1]
+endpardo a,a1
+server_barrier
+
+print "Forming H_ab"
+CALL CCPT_HBAR_AB
+server_barrier
+print "Forming H_ij"
+CALL CCPT_HBAR_IJ
+server_barrier
+print "Forming H_ib"
+CALL CCPT_HBAR_IB
+server_barrier
+
+delete HBAR_ii
+delete HBAR_ia
+delete HBAR_jb
+
+print "Forming H_ijkl"
+CALL CCPT_HBAR_IJKL
+server_barrier
+print "Forming H_jkia"
+CALL CCPT_HBAR_JKIA
+server_barrier
+print "Forming H_iajk"
+server_barrier
+CALL CCPT_HBAR_IAJK
+
+print "Forming H_iabc"
+server_barrier
+CALL CCPT_HBAR_AIBC
+print "Forming H_ajib"
+server_barrier
+CALL CCPT_HBAR_AJIB
+server_barrier ## keep this barrier
+print "Forming H_abci"
+CALL CCPT_HBAR_ABCI 
+
+if has_singles == 1.0
+print "Forming 4 virtual H_abci term"
+call CCPT_AO4VIR
+endif
+
+server_barrier
+print "Finishing H_aibc"
+pardo a, a1, a2, i
+    request                             HBAR_AIBC_aabb[a,a1,i,a2]
+    request                             HBAR_AIBC_aabb[a,a2,i,a1]
+    tpppp[a,a1,i,a2]                  = HBAR_AIBC_aabb[a,a1,i,a2]
+    t1pppp[a,a1,i,a2]                 = HBAR_AIBC_aabb[a,a2,i,a1]
+    tpppp[a,a1,i,a2]                 -= t1pppp[a,a1,i,a2]
+    prepare HBAR_AIBC_aaaa[a,a1,i,a2] = tpppp[a,a1,i,a2]
+endpardo a, a1, a2, i
+
+print "Finishing H_abci"
+pardo a, a1, a2, i
+    request                             HBAR_ABCI_aabb[a,a1,a2,i]
+    request                             HBAR_ABCI_aabb[a2,a1,a,i]
+    tpppp[a,a1,a2,i]                  = HBAR_ABCI_aabb[a,a1,a2,i]
+    t1pppp[a,a1,a2,i]                 = HBAR_ABCI_aabb[a2,a1,a,i]
+    tpppp[a,a1,a2,i]                 -= t1pppp[a,a1,a2,i]
+    prepare HBAR_ABCI_aaaa[a,a1,a2,i] = tpppp[a,a1,a2,i]
+endpardo a, a1, a2, i
+server_barrier
+
+ENDPROC form_CCPT_H
 
 # ---------------------------------------------------------
 
@@ -5545,7 +7213,13 @@ if myrank == root
     do kstate
 	SEk0[kstate] = SEk[kstate]
     enddo kstate
+
+if is_ccpt == 0.0
     print "-- EOM-CCSD excited state energies --"
+endif
+if is_ccpt == 1.0
+    print "-- EOM-CCPT excited state energies --"
+endif
 
     do kstate
 	allocate contiguous EOM_EE_Energy[kstate:kstate]
@@ -6010,6 +7684,7 @@ endpardo a,i,b,j
 ENDPROC update_LB2ab
 
 PROC all_GS
+print "Bi-orthogonalizing exitation amplitudes"
 #
 #---------------------------------------------------------------
 # we do Left | Right biorthogonalization.
@@ -6292,8 +7967,7 @@ ENDPROC all_GS
 
 PROC update_vecs
 #
-server_barrier
-
+print "Forming new excitation amplitudes"
 server_barrier
 call move_by_one_RK1
 call move_by_one_LK1
@@ -8304,14 +9978,14 @@ ENDPROC back_transform_dipole
 #  MAIN
 # -----------------
 normcrit = 0.0000000000001
-ZERO = 0.0
+zero = 0.0
 one = 1.0
 root = 0
 subspc = eom_subspc
 roots = eom_roots
 
 print " "
-print "-- Parallel left-right EE-EOM-CCSD program"
+print "-- Parallel left-right EE-EOM-CC program"
 print "-- J. Comp. Phys. 1992, 103, 382-389 | J Chem Phys 2009, 130, 124122."
 print "-- Subspace collapse non-symmetric davidson update"
 print "-- J. Comp. Chem. 2001, 22, 1574-1589"
@@ -8320,7 +9994,15 @@ print " "
 server_barrier
 CALL READ_AMP
 call tran_uhf
-call form_H
+
+# this is the switch to form CCPT HBAR or CCSD
+if is_ccpt == 0.0
+    call form_H
+endif
+if is_ccpt == 1.0
+    call form_CCPT_H
+endif
+
 call form_diag
 
 iguess=0
@@ -8365,7 +10047,7 @@ do kiter
 enddo kiter
 
 print " "
-print "EOM-CCSD has converged"
+print "EOM-CC has converged"
 #print "FINAL excitation energies"
 #do kstate
 #    allocate contiguous EOM_EE_Energy[kstate:kstate]
@@ -8387,6 +10069,24 @@ allocate contiguous Dipole_Oscillator_Strength[1:eom_roots,1:3]
 allocate contiguous Dipole_Oscillator_norm[1:eom_roots]
 allocate contiguous EOM_EE_Energy[1:eom_roots]
 
+
+# this is a hack for now
+if has_singles == 0.0
+do a
+    do i
+        ST1a[a,i] = 0.0
+        ST1b[a,i] = 0.0
+    enddo i
+enddo a
+
+pardo i,a
+    put Lam1A[i,a] = 0.0
+    put Lam1B[i,a] = 0.0
+    put T1A[a,i] = 0.0
+    put T1B[a,i] = 0.0
+endpardo i,a
+endif
+
 do kstate
     print " "
     print "--------"
@@ -8400,6 +10100,11 @@ do kstate
     r0 = SR0[kstate]
     print EOM_EE_Energy[kstate:kstate]
     print " "
+
+#    print r0
+    if is_ccpt == 1.0
+	print "EOM-CCPT transition properties not correct yet"
+    endif
 
     do ixyz
 	RDipole[ixyz] = 0.0
