@@ -437,7 +437,6 @@
         ENDPARDO a, a1, i1
  
         sip_barrier
-        delete Vaiai #(*,*,*,i)
  
 ########################################################################
 #                                                                      #     
@@ -532,6 +531,8 @@
 
       has_singles = 0.0
       is_ccpt = 1.0
+      set_persistent fock_a "fock_a" 
+      set_persistent Ca "ca"
       set_persistent has_singles "has_singles"
       set_persistent is_ccpt "is_ccpt"
       set_persistent T2old_aa "T2old_aa"
