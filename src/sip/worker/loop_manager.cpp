@@ -540,108 +540,144 @@ inline bool FragmentCodePardoLoopManager::initialize_indices() {
 }
 
 bool FragmentCodePardoLoopManager::increment_special(){
-	bool more = false; 	// More iterations?
-	int current_value;
 	// Go over indices in this order
 	// ifrag, jfrag
+	bool more_ifrag_jfrag = false;
+	bool more_mu = false;
+	bool more_nu = false;
+	bool more = true;
 
 restart_ifrag_jfrag:
-	for (int i = 0; i < 2; ++i) {
-		current_value = data_manager_.index_value(index_id_[i]);
-		++current_value;
-		if (current_value < upper_bound_[i]) {
-			//increment current index and return
-			data_manager_.set_index_value(index_id_[i], current_value);
-			index_values_[i] = current_value;
-			more = true;
-			break;
-		} else {
-			//wrap around and handle next index
-			data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
-			index_values_[i] = current_value;
+	{
+		more_ifrag_jfrag = false; 	// More iterations?
+		for (int i = 0; i < 2; ++i) {
+			int current_value = data_manager_.index_value(index_id_[i]);
+			++current_value;
+			if (current_value < upper_bound_[i]) {
+				//increment current index and return
+				data_manager_.set_index_value(index_id_[i], current_value);
+				index_values_[i] = current_value;
+				more_ifrag_jfrag = true;
+				break;
+			} else {
+				//wrap around and handle next index
+				data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+				index_values_[i] = lower_seg_[i];
+				more = false;
+			}
 		}
-	}
+
+		std::cout << std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
+								<< index_values_[2] << ", " << index_values_[3] << "...";
+
 
 	// Check condition for ifrag & jfrag
-	{
+
 		int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
 		// bid will have [ifrag, jfrag]
 		const index_value_array_t indices_elst_dist = {index_values_[0], index_values_[1], unused_index_value, unused_index_value, unused_index_value, unused_index_value};
 		BlockId bid_elst_dist(elst_dist_array_slot, indices_elst_dist);
 		Block::BlockPtr bptr_elst_dist = data_manager_.block_manager_.get_block_for_reading(bid_elst_dist);
 		double val_elst_dist = (int)(bptr_elst_dist->get_data()[0]);
-		if (val_elst_dist != index_values_[0]){ // if elst_dist[ifrag,jfrag] != ifrag, break out of loop.
-			if (more){
+		// If either of these "where" clauses fail:
+		// where ifrag != jfrag
+		// where elst_dist[ifrag,jfrag] == ifrag
+		if (!(index_values_[0] != index_values_[1] && val_elst_dist == index_values_[0])){
+			std::cout << "...Failed..";
+			if (more_ifrag_jfrag){
+				std::cout << "going to restart_ifrag_jfrag" << std::endl;
 				goto restart_ifrag_jfrag;
 			} else {
+				std::cout << "going to return_increment_special" << std::endl;
 				goto return_increment_special;
 			}
 		}
 	}
 
 restart_mu:
-	// mu
-	more = false;
-	for (int i = 2; i < 3; ++i) {
-		current_value = data_manager_.index_value(index_id_[i]);
-		++current_value;
-		if (current_value < upper_bound_[i]) {
-			//increment current index and return
-			data_manager_.set_index_value(index_id_[i], current_value);
-			index_values_[i] = current_value;
-			more = true;
-			break;
-		} else {
-			//wrap around and handle next index
-			data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
-			index_values_[i] = current_value;
-		}
-	}
-
-	// Check condition for mu
 	{
+	// mu
+		more_mu = false;
+		for (int i = 2; i < 3; ++i) {
+			int current_value = data_manager_.index_value(index_id_[i]);
+			++current_value;
+			if (current_value < upper_bound_[i]) {
+				//increment current index and return
+				data_manager_.set_index_value(index_id_[i], current_value);
+				index_values_[i] = current_value;
+				more_mu = true;
+				break;
+			} else {
+				//wrap around and handle next index
+				data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+				index_values_[i] = lower_seg_[i];
+			}
+		}
+
+		std::cout <<  std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
+										<< index_values_[2] << ", " << index_values_[3] << "...";
+
+		// Check condition for mu
 		int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
-		BlockId bid_swao_frag(swao_frag_array_slot, index_values_[2]);
+		const index_value_array_t indices_elst_dist = {index_values_[2], unused_index_value, unused_index_value, unused_index_value, unused_index_value, unused_index_value};
+		BlockId bid_swao_frag(swao_frag_array_slot, indices_elst_dist);
 		Block::BlockPtr bptr_swao_frag = data_manager_.block_manager_.get_block_for_reading(bid_swao_frag);
 		double val_swao_frag = (int)(bptr_swao_frag->get_data()[0]);
-		if (val_swao_frag != index_values_[0]) { // if SwAO_frag[(index)mu] != ifrag break out of loop.
-			if (more) {
+
+
+		if (val_swao_frag == index_values_[0]) { // if SwAO_frag[(index)mu] != ifrag break out of loop.
+			std::cout << "...Failed..";
+
+			if (more_mu) {
 				goto restart_mu;
+				std::cout << "going to restart_mu" << std::endl;
+
 			} else {
+				std::cout << "going to restart_ifrag_jfrag" << std::endl;
+
 				goto restart_ifrag_jfrag;
 			}
 		}
 	}
 
 restart_nu:
-	// nu
-	more = false;
-	for (int i = 3; i < 4; ++i) {
-		current_value = data_manager_.index_value(index_id_[i]);
-		++current_value;
-		if (current_value < upper_bound_[i]) {
-			//increment current index and return
-			data_manager_.set_index_value(index_id_[i], current_value);
-			index_values_[i] = current_value;
-			more = true;
-			break;
-		} else {
-			//wrap around and handle next index
-			data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
-			index_values_[i] = current_value;
+	{
+		// nu
+		more_nu = false;
+		for (int i = 3; i < 4; ++i) {
+			int current_value = data_manager_.index_value(index_id_[i]);
+			++current_value;
+			if (current_value < upper_bound_[i]) {
+				//increment current index and return
+				data_manager_.set_index_value(index_id_[i], current_value);
+				index_values_[i] = current_value;
+				more_nu = true;
+				break;
+			} else {
+				//wrap around and handle next index
+				data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+				index_values_[i] = lower_seg_[i];
+			}
 		}
-	}
+
+		std::cout <<  std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
+											<< index_values_[2] << ", " << index_values_[3] << "...";
 
 	// Check condition for nu
-	{
+
 		int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
-		BlockId bid_swao_frag(swao_frag_array_slot, index_values_[3]);
+		const index_value_array_t indices_elst_dist = {index_values_[3], unused_index_value, unused_index_value, unused_index_value, unused_index_value, unused_index_value};
+		BlockId bid_swao_frag(swao_frag_array_slot, indices_elst_dist);
 		Block::BlockPtr bptr_swao_frag = data_manager_.block_manager_.get_block_for_reading(bid_swao_frag);
 		double val_swao_frag = (int)(bptr_swao_frag->get_data()[0]);
 		if (val_swao_frag != index_values_[0]) { // if SwAO_frag[(index)nu] != ifrag break out of loop.
-			if (more){
+			if (more_nu){
 				goto restart_nu;
+				std::cout << "going to restart_nu" << std::endl;
+
 			} else {
+				std::cout << "going to restart_mu" << std::endl;
+
 				goto restart_mu;
 			}
 		}
@@ -655,10 +691,17 @@ bool FragmentCodePardoLoopManager::do_update() {
 
 	if (to_exit_)
 		return false;
-	bool more_iters;
+	bool more_iters = false;
 	if (first_time_) {
 		first_time_ = false;
-		more_iters = initialize_indices();
+		bool first_iteration = initialize_indices();
+		if (first_iteration){
+			bool do_first_iteration = interpreter_->interpret_where(num_where_clauses_);
+			if (do_first_iteration)
+				return true;
+			else
+				more_iters = increment_special();
+		}
 	} else {
 		more_iters = increment_special();
 	}
@@ -666,8 +709,9 @@ bool FragmentCodePardoLoopManager::do_update() {
 	while(more_iters){
 		interpreter_->skip_where_clauses(num_where_clauses_);
 		iteration_++;
+		std::cout << "Iteration : " << iteration_ << std::endl;
 		if ((iteration_-1) % num_workers_ == company_rank_){
-			std::cout << "Worker " << company_rank_ << " doing iteration "
+			std::cout << std::endl << "Worker " << company_rank_ << " doing iteration " << iteration_ << ", Values : "
 						<< index_values_[0] << ", " << index_values_[1] << ", "
 						<< index_values_[2] << ", " << index_values_[3] << std::endl;
 			return true;

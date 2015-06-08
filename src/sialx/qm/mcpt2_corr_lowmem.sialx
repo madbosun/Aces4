@@ -134,11 +134,16 @@ import "mcpt2_vars.sialx"
       server_barrier
 
       PARDO ifrag, jfrag, mu, nu
+      WHERE jfrag != ifrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag      
 
-        print "NAKUL"
+    print "NAKUL"
+    print ifrag
+    print jfrag
+    print mu
+    print nu
 
 	 icount = (scalar)ifrag
 	 jcount = (scalar)jfrag
