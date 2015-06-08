@@ -47,7 +47,8 @@ protected:
 private:
 	virtual bool do_update() = 0;
 	virtual void do_finalize() = 0;
-	virtual void do_set_to_exit();DISALLOW_COPY_AND_ASSIGN(LoopManager);
+	virtual void do_set_to_exit();
+	DISALLOW_COPY_AND_ASSIGN(LoopManager);
 };
 
 class DoLoop: public LoopManager {
@@ -175,6 +176,45 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(BalancedTaskAllocParallelPardoLoop);
 
 };
+
+/**
+ * Special Loop manager for Fragment code mcpt2_corr_lowmem.
+ * Optimizes where clause lookups that involves looking up blocks.
+ */
+class FragmentCodePardoLoopManager: public LoopManager{
+public:
+	FragmentCodePardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~FragmentCodePardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const FragmentCodePardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+	bool increment_special();
+	bool initialize_indices();
+};
+
 #endif
 
 } /* namespace sip */

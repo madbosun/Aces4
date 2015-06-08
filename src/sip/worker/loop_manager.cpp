@@ -488,6 +488,233 @@ std::ostream& operator<<(std::ostream& os,
 	return os;
 }
 
+
+//++++++++++++++++++++++++++++++++++++++++++++
+
+FragmentCodePardoLoopManager::FragmentCodePardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+}
+
+FragmentCodePardoLoopManager::~FragmentCodePardoLoopManager() {}
+
+
+inline bool FragmentCodePardoLoopManager::initialize_indices() {
+	//initialize values of all indices
+	bool more_iterations = true;
+	for (int i = 0; i < num_indices_; ++i) {
+		if (lower_seg_[i] >= upper_bound_[i]) {
+			more_iterations = false; //this loop has an empty range in at least one dimension.
+			return more_iterations;
+		}
+		sip::check(
+				data_manager_.index_value(index_id_[i])
+						== DataManager::undefined_index_value,
+				"SIAL or SIP error, index "
+						+ sip_tables_.index_name(index_id_[i])
+						+ " already has value before loop",
+				Interpreter::global_interpreter->line_number());
+		data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+		index_values_[i] = lower_seg_[i];
+	}
+	more_iterations = true;
+	return more_iterations;
+}
+
+bool FragmentCodePardoLoopManager::increment_special(){
+	bool more = false; 	// More iterations?
+	int current_value;
+	// Go over indices in this order
+	// ifrag, jfrag
+
+restart_ifrag_jfrag:
+	for (int i = 0; i < 2; ++i) {
+		current_value = data_manager_.index_value(index_id_[i]);
+		++current_value;
+		if (current_value < upper_bound_[i]) {
+			//increment current index and return
+			data_manager_.set_index_value(index_id_[i], current_value);
+			index_values_[i] = current_value;
+			more = true;
+			break;
+		} else {
+			//wrap around and handle next index
+			data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+			index_values_[i] = current_value;
+		}
+	}
+
+	// Check condition for ifrag & jfrag
+	{
+		int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+		// bid will have [ifrag, jfrag]
+		const index_value_array_t indices_elst_dist = {index_values_[0], index_values_[1], unused_index_value, unused_index_value, unused_index_value, unused_index_value};
+		BlockId bid_elst_dist(elst_dist_array_slot, indices_elst_dist);
+		Block::BlockPtr bptr_elst_dist = data_manager_.block_manager_.get_block_for_reading(bid_elst_dist);
+		double val_elst_dist = (int)(bptr_elst_dist->get_data()[0]);
+		if (val_elst_dist != index_values_[0]){ // if elst_dist[ifrag,jfrag] != ifrag, break out of loop.
+			if (more){
+				goto restart_ifrag_jfrag;
+			} else {
+				goto return_increment_special;
+			}
+		}
+	}
+
+restart_mu:
+	// mu
+	more = false;
+	for (int i = 2; i < 3; ++i) {
+		current_value = data_manager_.index_value(index_id_[i]);
+		++current_value;
+		if (current_value < upper_bound_[i]) {
+			//increment current index and return
+			data_manager_.set_index_value(index_id_[i], current_value);
+			index_values_[i] = current_value;
+			more = true;
+			break;
+		} else {
+			//wrap around and handle next index
+			data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+			index_values_[i] = current_value;
+		}
+	}
+
+	// Check condition for mu
+	{
+		int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+		BlockId bid_swao_frag(swao_frag_array_slot, index_values_[2]);
+		Block::BlockPtr bptr_swao_frag = data_manager_.block_manager_.get_block_for_reading(bid_swao_frag);
+		double val_swao_frag = (int)(bptr_swao_frag->get_data()[0]);
+		if (val_swao_frag != index_values_[0]) { // if SwAO_frag[(index)mu] != ifrag break out of loop.
+			if (more) {
+				goto restart_mu;
+			} else {
+				goto restart_ifrag_jfrag;
+			}
+		}
+	}
+
+restart_nu:
+	// nu
+	more = false;
+	for (int i = 3; i < 4; ++i) {
+		current_value = data_manager_.index_value(index_id_[i]);
+		++current_value;
+		if (current_value < upper_bound_[i]) {
+			//increment current index and return
+			data_manager_.set_index_value(index_id_[i], current_value);
+			index_values_[i] = current_value;
+			more = true;
+			break;
+		} else {
+			//wrap around and handle next index
+			data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+			index_values_[i] = current_value;
+		}
+	}
+
+	// Check condition for nu
+	{
+		int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+		BlockId bid_swao_frag(swao_frag_array_slot, index_values_[3]);
+		Block::BlockPtr bptr_swao_frag = data_manager_.block_manager_.get_block_for_reading(bid_swao_frag);
+		double val_swao_frag = (int)(bptr_swao_frag->get_data()[0]);
+		if (val_swao_frag != index_values_[0]) { // if SwAO_frag[(index)nu] != ifrag break out of loop.
+			if (more){
+				goto restart_nu;
+			} else {
+				goto restart_mu;
+			}
+		}
+	}
+
+return_increment_special:
+	return more;
+}
+
+bool FragmentCodePardoLoopManager::do_update() {
+
+	if (to_exit_)
+		return false;
+	bool more_iters;
+	if (first_time_) {
+		first_time_ = false;
+		more_iters = initialize_indices();
+	} else {
+		more_iters = increment_special();
+	}
+
+	while(more_iters){
+		interpreter_->skip_where_clauses(num_where_clauses_);
+		iteration_++;
+		if ((iteration_-1) % num_workers_ == company_rank_){
+			std::cout << "Worker " << company_rank_ << " doing iteration "
+						<< index_values_[0] << ", " << index_values_[1] << ", "
+						<< index_values_[2] << ", " << index_values_[3] << std::endl;
+			return true;
+		}
+		more_iters = increment_special();
+	}
+	return more_iters; //this should be false here
+}
+
+
+void FragmentCodePardoLoopManager::do_finalize() {
+	for (int i = 0; i < num_indices_; ++i) {
+		data_manager_.set_index_undefined(index_id_[i]);
+	}
+}
+
+std::string FragmentCodePardoLoopManager::to_string() const {
+	std::stringstream ss;
+	ss << "FragmentCodePardoLoopManager:  num_indices="
+			<< num_indices_ << std::endl;
+	ss << "index_ids_=[";
+	for (int i = 0; i < num_indices_; ++i) {
+		ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+	}
+	ss << "] lower_seg_=[";
+	for (int i = 0; i < num_indices_; ++i) {
+		ss << (i == 0 ? "" : ",") << lower_seg_[i];
+	}
+	ss << "] upper_bound_=[";
+	for (int i = 0; i < num_indices_; ++i) {
+		ss << (i == 0 ? "" : ",") << upper_bound_[i];
+	}
+	ss << "] current= [";
+	for (int i = 0; i < num_indices_; ++i) {
+		ss << (i == 0 ? "" : ",")
+				<< data_manager_.index_value_to_string(index_id_[i]);
+	}
+	ss << "]";
+	return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+		const FragmentCodePardoLoopManager &obj) {
+	os << obj.to_string();
+	return os;
+}
+
 #endif
 
 } /* namespace sip */

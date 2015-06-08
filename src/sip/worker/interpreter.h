@@ -381,6 +381,7 @@ private:
 
 
 	bool interpret_where(int num_where_clauses);
+	void skip_where_clauses(int num_where_clauses);
 
 	void loop_start(LoopManager * loop);
 	void loop_end();
@@ -479,6 +480,7 @@ private:
 	friend class ::TestControllerParallel;
 	friend class ::TestController;
 	friend class BalancedTaskAllocParallelPardoLoop; //for interpret_where
+	friend class FragmentCodePardoLoopManager;
 
 	DISALLOW_COPY_AND_ASSIGN(Interpreter);
 };

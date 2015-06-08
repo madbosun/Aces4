@@ -169,9 +169,31 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 			int num_where_clauses = arg2();
 			SIP_LOG(
 					std::cout << "num_where_clauses "<< num_where_clauses << std::endl << std::flush);
-			LoopManager* loop = new BalancedTaskAllocParallelPardoLoop(
-					num_indices, index_selectors(), data_manager_, sip_tables_,
-					SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+
+			LoopManager* loop = NULL;
+			// HARD CODING LOOP MANAGER FOR FRAGMENT CODE
+			int line = get_line_number();
+			if (sip::GlobalState::get_program_name() == "mcpt2_corr_lowmem"){
+				switch (line){
+				case 136:
+					loop = new FragmentCodePardoLoopManager(
+							num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				default:
+					loop = new BalancedTaskAllocParallelPardoLoop(
+							num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+				}
+			} else {
+				loop = new BalancedTaskAllocParallelPardoLoop(
+							num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+			}
+
+//			LoopManager* loop = new BalancedTaskAllocParallelPardoLoop(
+//					num_indices, index_selectors(), data_manager_, sip_tables_,
+//					SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 #else
 			LoopManager* loop = new SequentialPardoLoop(num_indices,
 					index_selectors(), data_manager_, sip_tables_);
@@ -1493,6 +1515,20 @@ void Interpreter::handle_contraction(int drank,
 //	//	}
 //
 //}
+
+
+void Interpreter::skip_where_clauses(int num_where_clauses){
+	int loop_end_pc = control_stack_.top();
+	control_stack_.pop();
+	int loop_body_pc = control_stack_.top();
+	control_stack_.push(loop_end_pc);
+	pc = loop_body_pc;
+
+	for (int i = num_where_clauses; i > 0; --i) {
+		while (op_table_.opcode(++pc) != where_op);
+		++pc;
+	}
+}
 
 bool Interpreter::interpret_where(int num_where_clauses) {
 //	std::cout << "entering interpret_where " << std::endl << std::flush; //DEBUG

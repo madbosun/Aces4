@@ -28,6 +28,7 @@ namespace sip {
 class SialOpsParallel;
 class SialOpsSequential;
 class Interpreter;
+class FragmentCodePardoLoopManager;
 
 class DataManager {
 public:
@@ -112,6 +113,7 @@ private:
 	friend class Interpreter;
 	friend class SialOpsParallel;
 	friend class SialOpsSequential;
+	friend class FragmentCodePardoLoopManager;
 	friend class ::TestControllerParallel;
 	friend class ::TestController;
 

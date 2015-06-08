@@ -359,7 +359,7 @@ else()
 	add_dependencies(print_siptables tensordil superinstructions)
 endif()
 
-add_dependencies(superinstructions aces4_core tensordil)
+add_dependencies(superinstructions aces4_sip tensordil)
 
 #----------------------------------------------------------------------
 # Add Tests
@@ -409,11 +409,11 @@ if (HAVE_MPI) # Multi Node Version Tests
     add_test(NAME test_qm           COMMAND mpirun -np 2 test_qm)
     add_test(NAME test_unit         COMMAND mpirun -np 2 test_unit)
 
-    add_dependencies(test_basic_sial   gtest gtest_main test_contollers)
-    add_dependencies(test_sial         gtest gtest_main test_contollers)
-    #add_dependencies(test_mpi_qm       gtest gtest_main test_contollers)
-    add_dependencies(test_qm           gtest gtest_main test_contollers)
-    add_dependencies(test_unit         gtest gtest_main test_contollers)
+    add_dependencies(test_basic_sial   gtest gtest_main test_controllers)
+    add_dependencies(test_sial         gtest gtest_main test_controllers)
+    #add_dependencies(test_mpi_qm       gtest gtest_main test_controllers)
+    add_dependencies(test_qm           gtest gtest_main test_controllers)
+    add_dependencies(test_unit         gtest gtest_main test_controllers)
 
 else() # Single Node Version Tests
     add_executable(test_basic_sial   test/test_basic_sial.cpp    
@@ -441,9 +441,9 @@ else() # Single Node Version Tests
     add_test(NAME test_sial         COMMAND test_sial)
     add_test(NAME test_qm           COMMAND test_qm)
 
-    add_dependencies(test_basic_sial gtest gtest_main test_contollers)
-    add_dependencies(test_sial       gtest gtest_main test_contollers)
-    add_dependencies(test_qm         gtest gtest_main test_contollers)
+    add_dependencies(test_basic_sial gtest gtest_main test_controllers)
+    add_dependencies(test_sial       gtest gtest_main test_controllers)
+    add_dependencies(test_qm         gtest gtest_main test_controllers)
 
 endif()
 
