@@ -283,27 +283,20 @@ import "mcpt2_vars.sialx"
 
       PARDO ifrag, jfrag 
       where (int)elst_dist[ifrag,jfrag] == ifrag
+
 	  icount = (scalar)ifrag
 	  jcount = (scalar)jfrag
 
 # ---------------------------------------------------------------------------- 
 #     First stage --> form Vxxxj (1122) 
 # ---------------------------------------------------------------------------- 
-#
+
       DO mu 
       where (int)SwAO_frag[(index)mu] == ifrag
       DO nu 
       where (int)SwAO_frag[(index)nu] == ifrag
-
       do lambda
       where (int)SwAO_frag[(index)lambda] == jfrag
-
-	  icount = (scalar)ifrag
-	  jcount = (scalar)jfrag
-
-# ---------------------------------------------------------------------------- 
-#     First stage --> form Vxxxj (1122) 
-# ---------------------------------------------------------------------------- 
 
 	  DO j 
 	  where (int)SwOccA_frag[(index)j] == jfrag
@@ -3597,7 +3590,18 @@ import "mcpt2_vars.sialx"
       CALL FORM_T1
       sip_barrier 
       print "Completely Done singles formation" 
-      sip_barrier 
+#      eint_tot  = 0.0 
+#      eint_tot += e1x_at  
+#      eint_tot += e10pol_at  
+#      eint_tot += singles  
+#
+#
+#      print e1x_at 
+#      print e10pol_at 
+#      print singles  
+#
+#      print eint_tot 
+#      sip_barrier 
 #
 #     Compute the CCPT(2) dimer_doubles amplitudes for Fragment 1.  
 #     ------------------------------------------------------ 
