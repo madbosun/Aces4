@@ -545,7 +545,6 @@ bool FragmentCodePardoLoopManager::increment_special(){
 	bool more_ifrag_jfrag = false;
 	bool more_mu = false;
 	bool more_nu = false;
-	bool more = true;
 
 restart_ifrag_jfrag:
 	{
@@ -563,12 +562,11 @@ restart_ifrag_jfrag:
 				//wrap around and handle next index
 				data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
 				index_values_[i] = lower_seg_[i];
-				more = false;
 			}
 		}
 
-		std::cout << std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
-								<< index_values_[2] << ", " << index_values_[3] << "...";
+		//std::cout << std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
+		//						<< index_values_[2] << ", " << index_values_[3] << "...";
 
 
 	// Check condition for ifrag & jfrag
@@ -585,10 +583,10 @@ restart_ifrag_jfrag:
 		if (!(index_values_[0] != index_values_[1] && val_elst_dist == index_values_[0])){
 			std::cout << "...Failed..";
 			if (more_ifrag_jfrag){
-				std::cout << "going to restart_ifrag_jfrag" << std::endl;
+				//std::cout << "going to restart_ifrag_jfrag" << std::endl;
 				goto restart_ifrag_jfrag;
 			} else {
-				std::cout << "going to return_increment_special" << std::endl;
+				//std::cout << "going to return_increment_special" << std::endl;
 				goto return_increment_special;
 			}
 		}
@@ -614,8 +612,8 @@ restart_mu:
 			}
 		}
 
-		std::cout <<  std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
-										<< index_values_[2] << ", " << index_values_[3] << "...";
+		//std::cout <<  std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
+		//								<< index_values_[2] << ", " << index_values_[3] << "...";
 
 		// Check condition for mu
 		int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
@@ -625,15 +623,15 @@ restart_mu:
 		double val_swao_frag = (int)(bptr_swao_frag->get_data()[0]);
 
 
-		if (val_swao_frag == index_values_[0]) { // if SwAO_frag[(index)mu] != ifrag break out of loop.
+		if (val_swao_frag != index_values_[0]) { // if SwAO_frag[(index)mu] != ifrag break out of loop.
 			std::cout << "...Failed..";
 
 			if (more_mu) {
 				goto restart_mu;
-				std::cout << "going to restart_mu" << std::endl;
+				//std::cout << "going to restart_mu" << std::endl;
 
 			} else {
-				std::cout << "going to restart_ifrag_jfrag" << std::endl;
+				//std::cout << "going to restart_ifrag_jfrag" << std::endl;
 
 				goto restart_ifrag_jfrag;
 			}
@@ -660,8 +658,8 @@ restart_nu:
 			}
 		}
 
-		std::cout <<  std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
-											<< index_values_[2] << ", " << index_values_[3] << "...";
+		//std::cout <<  std::endl << "Evaluating for indices : "<< index_values_[0] << ", " << index_values_[1] << ", "
+		//									<< index_values_[2] << ", " << index_values_[3] << "...";
 
 	// Check condition for nu
 
@@ -673,10 +671,10 @@ restart_nu:
 		if (val_swao_frag != index_values_[0]) { // if SwAO_frag[(index)nu] != ifrag break out of loop.
 			if (more_nu){
 				goto restart_nu;
-				std::cout << "going to restart_nu" << std::endl;
+				//std::cout << "going to restart_nu" << std::endl;
 
 			} else {
-				std::cout << "going to restart_mu" << std::endl;
+				//std::cout << "going to restart_mu" << std::endl;
 
 				goto restart_mu;
 			}
@@ -684,7 +682,7 @@ restart_nu:
 	}
 
 return_increment_special:
-	return more;
+	return more_ifrag_jfrag;
 }
 
 bool FragmentCodePardoLoopManager::do_update() {
@@ -709,11 +707,10 @@ bool FragmentCodePardoLoopManager::do_update() {
 	while(more_iters){
 		interpreter_->skip_where_clauses(num_where_clauses_);
 		iteration_++;
-		std::cout << "Iteration : " << iteration_ << std::endl;
 		if ((iteration_-1) % num_workers_ == company_rank_){
-			std::cout << std::endl << "Worker " << company_rank_ << " doing iteration " << iteration_ << ", Values : "
-						<< index_values_[0] << ", " << index_values_[1] << ", "
-						<< index_values_[2] << ", " << index_values_[3] << std::endl;
+			//std::cout << std::endl << "Worker " << company_rank_ << " doing iteration " << iteration_ << ", Values : "
+			//			<< index_values_[0] << ", " << index_values_[1] << ", "
+			//			<< index_values_[2] << ", " << index_values_[3] << std::endl;
 			return true;
 		}
 		more_iters = increment_special();
