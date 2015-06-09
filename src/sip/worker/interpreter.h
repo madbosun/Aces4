@@ -480,7 +480,8 @@ private:
 	friend class ::TestControllerParallel;
 	friend class ::TestController;
 	friend class BalancedTaskAllocParallelPardoLoop; //for interpret_where
-	friend class FragmentCodePardoLoopManager;
+	friend class Fragment_ij_aa__PardoLoopManager;
+	friend class Fragment_ij_ao_vo_PardoLoopManager;
 
 	DISALLOW_COPY_AND_ASSIGN(Interpreter);
 };

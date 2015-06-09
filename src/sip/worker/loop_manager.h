@@ -180,16 +180,21 @@ private:
 /**
  * Special Loop manager for Fragment code mcpt2_corr_lowmem.
  * Optimizes where clause lookups that involves looking up blocks.
- */
-class FragmentCodePardoLoopManager: public LoopManager{
+ *
+ *  naming scheme: _<simple index fragment indices>_<occ (o), virt (v), ao (a)
+ *  in ifrag>_<o,v,a in jfrag>
+ *
+ *  */
+
+class Fragment_ij_aa__PardoLoopManager: public LoopManager{
 public:
-	FragmentCodePardoLoopManager(int num_indices,
+	Fragment_ij_aa__PardoLoopManager(int num_indices,
 			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
 			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
 			int num_where_clauses, Interpreter* interpreter, long& iteration);
-	virtual ~FragmentCodePardoLoopManager();
+	virtual ~Fragment_ij_aa__PardoLoopManager();
 	friend std::ostream& operator<<(std::ostream&,
-				const FragmentCodePardoLoopManager &);
+				const Fragment_ij_aa__PardoLoopManager &);
 private:
 	virtual std::string to_string() const;
 	virtual bool do_update();
@@ -213,6 +218,54 @@ private:
 
 	bool increment_special();
 	bool initialize_indices();
+
+        int index1;
+        int index2;
+	double return_val_elst_dist(int index1, int index2);
+	double return_val_swao_frag(int index1);
+	double return_val_swocca_frag(int index1);
+	double return_val_swvirta_frag(int index1);
+};
+
+class Fragment_ij_ao_vo_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_ao_vo_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_ao_vo_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_ao_vo_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+	bool increment_special();
+	bool initialize_indices();
+
+        int index1;
+        int index2;
+	double return_val_elst_dist(int index1, int index2);
+	double return_val_swao_frag(int index1);
+	double return_val_swocca_frag(int index1);
+	double return_val_swvirta_frag(int index1);
 };
 
 #endif

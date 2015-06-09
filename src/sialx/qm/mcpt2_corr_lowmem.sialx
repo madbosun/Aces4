@@ -133,21 +133,12 @@ import "mcpt2_vars.sialx"
 
       server_barrier
 
-      PARDO ifrag, jfrag, mu, nu
+      PARDO ifrag, jfrag, mu, nu #GETLINE: Fragment_ij_aa__
       WHERE jfrag != ifrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag      
-
-    print "NAKUL"
-    print ifrag
-    print jfrag
-    print mu
-    print nu
-
-	 icount = (scalar)ifrag
-	 jcount = (scalar)jfrag
-
+      
 #
 # ---------------------------------------------------------------------------- 
 #     Form wC_ao  
@@ -231,11 +222,8 @@ import "mcpt2_vars.sialx"
       sip_barrier
       print "Done initial formation of wC(AO)"
 
-      PARDO ifrag
-         icount = (scalar)ifrag
-         DO mu
+      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
 	 where (int)SwAO_frag[(index)mu] == ifrag
-         DO nu
          where (int)SwAO_frag[(index)nu] == ifrag
 
              GET             wC_ao[mu,nu]
@@ -275,9 +263,7 @@ import "mcpt2_vars.sialx"
 		  ENDDO i
 	      ENDDO i1
 
-         ENDDO nu
-         ENDDO mu
-      ENDPARDO ifrag
+      ENDPARDO ifrag, mu, nu
 
       sip_barrier 
 
@@ -608,23 +594,27 @@ import "mcpt2_vars.sialx"
       print "Done third stage of two-electron integral transformation" 
       sip_barrier 
 
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, mu, i, b, j #GETLINE: Fragment_ij_ao_vo_
       where (int)elst_dist[ifrag,jfrag] == ifrag
-        icount = (scalar)ifrag
-        jcount = (scalar)jfrag
+      where (int)SwAO_frag[(index)mu] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwVirtA_frag[(index)b] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
 
+      print ifrag
+      print jfrag
+      print mu
+      print i 
+      print b
+      print j
+      execute get_my_rank rank
+      print rank
+      print "--"
+#
 # ---------------------------------------------------------------------------- 
 #     Fourth stage --> form Vaibj (1122) 
 # ---------------------------------------------------------------------------- 
 #
-      DO mu 
-      where (int)SwAO_frag[(index)mu] == ifrag
-      DO i 
-      where (int)SwOccA_frag[(index)i] == ifrag
-      DO b 
-      where (int)SwVirtA_frag[(index)b] == jfrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
 
 	  GET               Vxpbq[mu,i,b,j] 
 
@@ -634,11 +624,7 @@ import "mcpt2_vars.sialx"
 		PUT Vaibj[a,i,b,j] += tppqq[a,i,b,j] 
 	  ENDDO a 
 
-      ENDDO j 
-      ENDDO b 
-      ENDDO i 
-      ENDDO mu 
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag, jfrag, mu, i, b, j
 
 # ---------------------------------------------------------------------------- 
 #     Fourth stage --> form Viabj (1122) 
@@ -769,7 +755,7 @@ import "mcpt2_vars.sialx"
       ENDDO i1  
       ENDPARDO ifrag, jfrag 
       
-      print "Fone fourth stage of transformation" 
+      print "Done fourth stage of transformation" 
 
       sip_barrier 
 
@@ -1743,24 +1729,12 @@ import "mcpt2_vars.sialx"
 
         ENDDO i  
         ENDDO a  
-      ENDIF # etemp > cc_conv 
 
-      ENDPARDO ifrag 
-# 
-
-      PARDO ifrag,jfrag
+      DO jfrag
       where ifrag != jfrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
          icount = (scalar)ifrag
-            jcount = (scalar)jfrag
-
-         GET     e1error[ifrag] 
-         etemp = e1error[ifrag] 
-         if etemp < zero  
-            etemp *= -1.0 
-         endif 
-
-      IF etemp > cc_conv 
+         jcount = (scalar)jfrag
 
          DO a  
 	 where (int)SwVirtA_frag[(index)a] == ifrag
@@ -1788,9 +1762,10 @@ import "mcpt2_vars.sialx"
         ENDDO i  
         ENDDO a  
 
+      enddo jfrag
       ENDIF # etemp > cc_conv 
 
-      ENDPARDO ifrag, jfrag
+      ENDPARDO ifrag
       sip_barrier 
 
       PARDO ifrag 
@@ -3530,6 +3505,7 @@ import "mcpt2_vars.sialx"
 # Restore the persistent arrays. 
      #create DCa 
      #create DFock_a
+     execute enable_all_rank_print
       sip_barrier
 #      restore_persistent Dca "ca" 
 #      set_persistent Dca "ca" 
@@ -3592,126 +3568,126 @@ import "mcpt2_vars.sialx"
       CALL FORM_T1
       sip_barrier 
       print "Completely Done singles formation" 
-#      eint_tot  = 0.0 
-#      eint_tot += e1x_at  
-#      eint_tot += e10pol_at  
-#      eint_tot += singles  
-#
-#
-#      print e1x_at 
-#      print e10pol_at 
-#      print singles  
-#
-#      print eint_tot 
-#      sip_barrier 
-#
-#     Compute the CCPT(2) dimer_doubles amplitudes for Fragment 1.  
-#     ------------------------------------------------------ 
-      CALL FORM_T2_0GUESS 
-      sip_barrier 
-      print "Done forming T2_0guess" 
-
-# Start macro-iterations 
-      DO jiter 
-         sip_barrier 
-	 print "Macro iteration"
-	 print jiter
-
-         PARDO ifrag 
-           GET                   e20c[ifrag] 
-           PUT e2_macro[ifrag] = e20c[ifrag] 
-         ENDPARDO ifrag  
-
-         sip_barrier 
-         CALL FORM_T2_GUESS 
-         sip_barrier 
-	 print "Entering FORM_T2_FRAGMENT_ITERS"
-         CALL FORM_T2_FRAGMENT_ITERS 
-         sip_barrier 
-	 print "Entering FORM_T2_DIMER_ITERS"
-         CALL FORM_T2_DIMER_ITERS 
-         print "Done forming T2 Dimer calculation" 
-         fragment_doubles = 0.0 
-         esum = 0.0 
-         sip_barrier 
-# Print out energies after each macroiteration  
-         execute get_my_rank rank
-         if rank == 0.0
-         print "MCPT(2) monomer macro-iteration energies"
-         DO ifrag
-            allocate contiguous macro_e20[ifrag:ifrag]
-            GET                 e20c[ifrag] 
-            macro_e20[ifrag:ifrag]  = e20c[ifrag] 
-            print macro_e20[ifrag:ifrag] 
-            etemp = e20c[ifrag] 
-            fragment_doubles += etemp 
-            deallocate contiguous macro_e20[ifrag:ifrag]
-         ENDDO ifrag   
-
-         print "MCPT(2) dimer macro-iteration energies"
-	 do ifrag
-	 do jfrag
-	     WHERE jfrag > ifrag 
-	     where (int)elst_dist[ifrag,jfrag] == ifrag
-	     icount = (scalar)ifrag
-	     jcount = (scalar)jfrag
-
-		 allocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
-		 get d20c[ifrag,jfrag]
-		 macro_d20[ifrag:ifrag,jfrag:jfrag] = d20c[ifrag,jfrag]
-		 print macro_d20[ifrag:ifrag,jfrag:jfrag]
-		 deallocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
-	 enddo jfrag
-	 enddo ifrag
-         endif
-         sip_barrier 
-
-# Determine if full macro convergence is met 
-         do_iter = 0.0 
-         DO ifrag 
-           GET          e20c[ifrag] 
-           GET          e2_macro[ifrag] 
-           tp[ifrag]  = e20c[ifrag]  
-           tp[ifrag] -= e2_macro[ifrag]  
-           execute return_sval tp[ifrag] etemp  
-           if etemp < zero 
-              etemp *= -1.0 
-           endif 
-           IF etemp > cc_conv 
-              do_iter = 2.0 
-           ENDIF 
-         ENDDO ifrag 
-         print etemp 
-         print do_iter  
-         sip_barrier 
-         if do_iter < 1.0 
-            exit 
-         endif 
-#
-      ENDDO jiter 
-      sip_barrier
-#
-      CALL FORM_T2_MONOMER  
-      sip_barrier
-#
       eint_tot  = 0.0 
       eint_tot += e1x_at  
       eint_tot += e10pol_at  
-      eint_tot += eps1_pol   
       eint_tot += singles  
-      eint_tot += dimer_doubles  
-      eint_tot += fragment_doubles  
-      eint_tot += mono_lccd   
+
 
       print e1x_at 
       print e10pol_at 
-      print eps1_pol  
       print singles  
-      print dimer_doubles  
-      print fragment_doubles  
-      print mono_lccd  
 
       print eint_tot 
+      sip_barrier 
+#
+#     Compute the CCPT(2) dimer_doubles amplitudes for Fragment 1.  
+#     ------------------------------------------------------ 
+#      CALL FORM_T2_0GUESS 
+#      sip_barrier 
+#      print "Done forming T2_0guess" 
+#
+## Start macro-iterations 
+#      DO jiter 
+#         sip_barrier 
+#	 print "Macro iteration"
+#	 print jiter
+#
+#         PARDO ifrag 
+#           GET                   e20c[ifrag] 
+#           PUT e2_macro[ifrag] = e20c[ifrag] 
+#         ENDPARDO ifrag  
+#
+#         sip_barrier 
+#         CALL FORM_T2_GUESS 
+#         sip_barrier 
+#	 print "Entering FORM_T2_FRAGMENT_ITERS"
+#         CALL FORM_T2_FRAGMENT_ITERS 
+#         sip_barrier 
+#	 print "Entering FORM_T2_DIMER_ITERS"
+#         CALL FORM_T2_DIMER_ITERS 
+#         print "Done forming T2 Dimer calculation" 
+#         fragment_doubles = 0.0 
+#         esum = 0.0 
+#         sip_barrier 
+## Print out energies after each macroiteration  
+#         execute get_my_rank rank
+#         if rank == 0.0
+#         print "MCPT(2) monomer macro-iteration energies"
+#         DO ifrag
+#            allocate contiguous macro_e20[ifrag:ifrag]
+#            GET                 e20c[ifrag] 
+#            macro_e20[ifrag:ifrag]  = e20c[ifrag] 
+#            print macro_e20[ifrag:ifrag] 
+#            etemp = e20c[ifrag] 
+#            fragment_doubles += etemp 
+#            deallocate contiguous macro_e20[ifrag:ifrag]
+#         ENDDO ifrag   
+#
+#         print "MCPT(2) dimer macro-iteration energies"
+#	 do ifrag
+#	 do jfrag
+#	     WHERE jfrag > ifrag 
+#	     where (int)elst_dist[ifrag,jfrag] == ifrag
+#	     icount = (scalar)ifrag
+#	     jcount = (scalar)jfrag
+#
+#		 allocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
+#		 get d20c[ifrag,jfrag]
+#		 macro_d20[ifrag:ifrag,jfrag:jfrag] = d20c[ifrag,jfrag]
+#		 print macro_d20[ifrag:ifrag,jfrag:jfrag]
+#		 deallocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
+#	 enddo jfrag
+#	 enddo ifrag
+#         endif
+#         sip_barrier 
+#
+## Determine if full macro convergence is met 
+#         do_iter = 0.0 
+#         DO ifrag 
+#           GET          e20c[ifrag] 
+#           GET          e2_macro[ifrag] 
+#           tp[ifrag]  = e20c[ifrag]  
+#           tp[ifrag] -= e2_macro[ifrag]  
+#           execute return_sval tp[ifrag] etemp  
+#           if etemp < zero 
+#              etemp *= -1.0 
+#           endif 
+#           IF etemp > cc_conv 
+#              do_iter = 2.0 
+#           ENDIF 
+#         ENDDO ifrag 
+#         print etemp 
+#         print do_iter  
+#         sip_barrier 
+#         if do_iter < 1.0 
+#            exit 
+#         endif 
+##
+#      ENDDO jiter 
+#      sip_barrier
+##
+#      CALL FORM_T2_MONOMER  
+#      sip_barrier
+##
+#      eint_tot  = 0.0 
+#      eint_tot += e1x_at  
+#      eint_tot += e10pol_at  
+#      eint_tot += eps1_pol   
+#      eint_tot += singles  
+#      eint_tot += dimer_doubles  
+#      eint_tot += fragment_doubles  
+#      eint_tot += mono_lccd   
+#
+#      print e1x_at 
+#      print e10pol_at 
+#      print eps1_pol  
+#      print singles  
+#      print dimer_doubles  
+#      print fragment_doubles  
+#      print mono_lccd  
+#
+#      print eint_tot 
 
          sip_barrier 
                            ENDSIAL FRAG_2ORDER_CORR 

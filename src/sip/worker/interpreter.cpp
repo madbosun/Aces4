@@ -176,10 +176,15 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 			if (sip::GlobalState::get_program_name() == "mcpt2_corr_lowmem.siox"){
 				switch (line){
 				case 136:
-					loop = new FragmentCodePardoLoopManager(
-							num_indices, index_selectors(), data_manager_, sip_tables_,
+					loop = new Fragment_ij_aa__PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
-					std::cout << "At line 136 in mcpt2_corr_lowmem " << std::endl;
+					break;
+				case 597:
+				std::cout << "in597" << std::endl;
+					loop = new Fragment_ij_ao_vo_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;
 				default:
 					loop = new BalancedTaskAllocParallelPardoLoop(
