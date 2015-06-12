@@ -215,20 +215,32 @@ private:
 	Interpreter* interpreter_;
 
 	int index_values_[MAX_RANK];
-
+    
     bool initialize_indices();
     bool increment_simple_pair();
     bool increment_single_index(int index);
     bool increment_special();
     
-    double return_val_rcut_dist(int index1, int index2);
-    double return_val_elst_dist(int index1, int index2);
-    double return_val_swao_frag(int index1);
-    double return_val_swocca_frag(int index1);
-    double return_val_swvirta_frag(int index1);
+    //double return_val_rcut_dist(int index1, int index2);
+    //double return_val_elst_dist(int index1, int index2);
+    //double return_val_swao_frag(int index1);
+    //double return_val_swocca_frag(int index1);
+    //double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
     
     bool fragment_special_where_clause(int typ, int index, int frag);
     bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
 };
 
 class Fragment_ij_ao_vo_PardoLoopManager: public LoopManager{
@@ -266,14 +278,26 @@ private:
     bool increment_single_index(int index);
     bool increment_special();
 
-    double return_val_rcut_dist(int index1, int index2);
-	double return_val_elst_dist(int index1, int index2);
-	double return_val_swao_frag(int index1);
-	double return_val_swocca_frag(int index1);
-	double return_val_swvirta_frag(int index1);
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
     
     bool fragment_special_where_clause(int typ, int index, int frag);
     bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
     
 };
 

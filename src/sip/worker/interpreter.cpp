@@ -175,12 +175,12 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 			int line = get_line_number();
 			if (sip::GlobalState::get_program_name() == "mcpt2_corr_lowmem.siox"){
 				switch (line){
-				case 136:
+				case 462:
 					loop = new Fragment_ij_aa__PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;
-				case 597:
+				case 923:
 					loop = new Fragment_ij_ao_vo_PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
