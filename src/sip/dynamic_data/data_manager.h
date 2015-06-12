@@ -27,9 +27,9 @@ class TestController;
 namespace sip {
 class SialOpsParallel;
 class SialOpsSequential;
-class Interpreter;
 class Fragment_ij_aa__PardoLoopManager;
 class Fragment_ij_ao_vo_PardoLoopManager;
+class Interpreter;
 
 class DataManager {
 public:
@@ -90,10 +90,8 @@ public:
 	void enter_scope();
 	void leave_scope();
 
-
 	//immutable data for convenience
 	const BlockManager& block_manager() const { return block_manager_; }	// For printing
-
 
 private:
 
@@ -114,8 +112,8 @@ private:
 	friend class Interpreter;
 	friend class SialOpsParallel;
 	friend class SialOpsSequential;
-	friend class Fragment_ij_aa__PardoLoopManager;
-	friend class Fragment_ij_ao_vo_PardoLoopManager;
+        friend class Fragment_ij_aa__PardoLoopManager;
+        friend class Fragment_ij_ao_vo_PardoLoopManager;
 	friend class ::TestControllerParallel;
 	friend class ::TestController;
 

@@ -181,7 +181,6 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;
 				case 597:
-				std::cout << "in597" << std::endl;
 					loop = new Fragment_ij_ao_vo_PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);

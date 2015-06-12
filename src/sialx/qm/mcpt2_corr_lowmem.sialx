@@ -138,7 +138,7 @@ import "mcpt2_vars.sialx"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag      
-      
+
 #
 # ---------------------------------------------------------------------------- 
 #     Form wC_ao  
@@ -601,15 +601,6 @@ import "mcpt2_vars.sialx"
       where (int)SwVirtA_frag[(index)b] == jfrag
       where (int)SwOccA_frag[(index)j] == jfrag
 
-      print ifrag
-      print jfrag
-      print mu
-      print i 
-      print b
-      print j
-      execute get_my_rank rank
-      print rank
-      print "--"
 #
 # ---------------------------------------------------------------------------- 
 #     Fourth stage --> form Vaibj (1122) 
@@ -3505,7 +3496,7 @@ import "mcpt2_vars.sialx"
 # Restore the persistent arrays. 
      #create DCa 
      #create DFock_a
-     execute enable_all_rank_print
+     #execute enable_all_rank_print
       sip_barrier
 #      restore_persistent Dca "ca" 
 #      set_persistent Dca "ca" 

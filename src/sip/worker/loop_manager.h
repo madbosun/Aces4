@@ -216,15 +216,19 @@ private:
 
 	int index_values_[MAX_RANK];
 
-	bool increment_special();
-	bool initialize_indices();
-
-        int index1;
-        int index2;
-	double return_val_elst_dist(int index1, int index2);
-	double return_val_swao_frag(int index1);
-	double return_val_swocca_frag(int index1);
-	double return_val_swvirta_frag(int index1);
+    bool initialize_indices();
+    bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_special();
+    
+    double return_val_rcut_dist(int index1, int index2);
+    double return_val_elst_dist(int index1, int index2);
+    double return_val_swao_frag(int index1);
+    double return_val_swocca_frag(int index1);
+    double return_val_swvirta_frag(int index1);
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
 };
 
 class Fragment_ij_ao_vo_PardoLoopManager: public LoopManager{
@@ -257,15 +261,20 @@ private:
 
 	int index_values_[MAX_RANK];
 
-	bool increment_special();
-	bool initialize_indices();
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_special();
 
-        int index1;
-        int index2;
+    double return_val_rcut_dist(int index1, int index2);
 	double return_val_elst_dist(int index1, int index2);
 	double return_val_swao_frag(int index1);
 	double return_val_swocca_frag(int index1);
 	double return_val_swvirta_frag(int index1);
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
 };
 
 #endif
