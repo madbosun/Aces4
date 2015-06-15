@@ -175,13 +175,68 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 			int line = get_line_number();
 			if (sip::GlobalState::get_program_name() == "mcpt2_corr_lowmem.siox"){
 				switch (line){
-				case 462:
+				    case 16:
+				    case 110:
+					loop = new Fragment_i_aaaaa__PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 30:
 					loop = new Fragment_ij_aa__PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;
-				case 923:
+				case 161:
+				case 221:
+					loop = new Fragment_ij_aa_aa_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 266:
+					loop = new Fragment_ij_aaaa__PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 322:
+				case 345:
+				case 388:
+					loop = new Fragment_ij_ao_ao_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 369:
+					loop = new Fragment_ij_aa_oo_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 384:
+					loop = new Fragment_ij_aoa_o_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 431:
+				case 451:
 					loop = new Fragment_ij_ao_vo_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 471:
+					loop = new Fragment_ij_av_oo_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 494:
+					loop = new Fragment_ij_ao_oo_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 513:
+					loop = new Fragment_ij_oo_ao_PardoLoopManager(
+						num_indices, index_selectors(), data_manager_, sip_tables_,
+							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
+					break;
+				case 532:
+					loop = new Fragment_ij_aoo_o_PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;

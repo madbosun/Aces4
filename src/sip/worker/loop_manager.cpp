@@ -487,14 +487,12 @@ std::ostream& operator<<(std::ostream& os,
     os << obj.to_string();
     return os;
 }
+// ----------------------------------------------------------------------------------------
+/*!
+ Fragment_ special naming scheme: _<simple index fragment indices>_<occ (o), virt (v), ao (a) in ifrag>_<o,v,a in jfrag>
+*/
 
-/*
- 
- naming scheme: _<simple index fragment indices>_<occ (o), virt (v), ao (a) in ifrag>_<o,v,a in jfrag>
- 
- */
-
-/*
+/*!
  -------------------------------------------
  _ij_aa__
  -------------------------------------------
@@ -506,6 +504,94 @@ std::ostream& operator<<(std::ostream& os,
  where (int)SwAO_frag[(index)nu] == ifrag
  
  */
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_aa__PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+        int NE = 0;
+
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_aa__PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = (index_values_[0] != index_values_[1]) && where_clause(1) && where_clause(2) && where_clause(3);
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!(index_values_[0] != index_values_[1] && where_clause(0)) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            for (int i = index_start; i < num_indices_; ++i) {
+                // we can increment the next index
+                if (!more_iters)
+                {
+                    more_iters = increment_single_index(i);
+                }
+                // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                if (!where_clause(i)) {
+                    goto more_loops;
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
 
 Fragment_ij_aa__PardoLoopManager::Fragment_ij_aa__PardoLoopManager(
 		int num_indices, const int (&index_id)[MAX_RANK],
@@ -528,41 +614,58 @@ Fragment_ij_aa__PardoLoopManager::Fragment_ij_aa__PardoLoopManager(
 						+ " has empty range",
 				Interpreter::global_interpreter->line_number());
 	}
-            
-            form_elst_dist();
-            form_swao_frag();
-            form_swocca_frag();
-            form_swvirta_frag();
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    //form_swocca_frag();
+    //form_swvirta_frag();
 }
 
 Fragment_ij_aa__PardoLoopManager::~Fragment_ij_aa__PardoLoopManager() {}
 
-
-inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
-	//initialize values of all indices
-	bool more_iterations = true;
-	for (int i = 0; i < num_indices_; ++i) {
-		if (lower_seg_[i] >= upper_bound_[i]) {
-			more_iterations = false; //this loop has an empty range in at least one dimension.
-			return more_iterations;
-		}
-		sip::check(
-				data_manager_.index_value(index_id_[i])
-						== DataManager::undefined_index_value,
-				"SIAL or SIP error, index "
-						+ sip_tables_.index_name(index_id_[i])
-						+ " already has value before loop",
-				Interpreter::global_interpreter->line_number());
-		data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
-		index_values_[i] = lower_seg_[i];
-	}
-	more_iterations = true;
-	return more_iterations;
+bool Fragment_ij_aa__PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
 }
 
+bool Fragment_ij_aa__PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_aa__PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
     void Fragment_ij_aa__PardoLoopManager::form_elst_dist() {
         int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
-        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager_.get_array(elst_dist_array_slot);
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
         double *val_elst_dist = bptr_elst_dist->get_data();
         int elst_dist_size = bptr_elst_dist->size();
         int num_frag = upper_bound_[0] - lower_seg_[0];
@@ -581,10 +684,10 @@ inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
         }
         return;
     }
-    
+
     void Fragment_ij_aa__PardoLoopManager::form_rcut_dist() {
         int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
-        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager_.get_array(rcut_dist_array_slot);
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
         double *val_rcut_dist = bptr_rcut_dist->get_data();
         int rcut_dist_size = bptr_rcut_dist->size();
         int num_frag = upper_bound_[0] - lower_seg_[0];
@@ -606,7 +709,7 @@ inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
     
     void Fragment_ij_aa__PardoLoopManager::form_swao_frag() {
         int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
-        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager_.get_array(swao_frag_array_slot);
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
         double *val_swao_frag = bptr_swao_frag->get_data();
         int swao_frag_size = bptr_swao_frag->size();
         swao_frag.resize(swao_frag_size);
@@ -619,7 +722,7 @@ inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
     
     void Fragment_ij_aa__PardoLoopManager::form_swocca_frag() {
         int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
-        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager_.get_array(swocca_frag_array_slot);
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
         double *val_swocca_frag = bptr_swocca_frag->get_data();
         int swocca_frag_size = bptr_swocca_frag->size();
         swocca_frag.resize(swocca_frag_size);
@@ -632,7 +735,7 @@ inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
     
     void Fragment_ij_aa__PardoLoopManager::form_swvirta_frag() {
         int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
-        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager_.get_array(swvirta_frag_array_slot);
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
         double *val_swvirta_frag = bptr_swvirta_frag->get_data();
         int swvirta_frag_size = bptr_swvirta_frag->size();
         swvirta_frag.resize(swvirta_frag_size);
@@ -643,114 +746,167 @@ inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
         return;
     }
     
-    bool Fragment_ij_aa__PardoLoopManager::increment_simple_pair(){
-        bool more = false; 	// More iterations?
-        int current_value;
-        for (int i = 0; i < 2; ++i) {
-            current_value = data_manager_.index_value(index_id_[i]);
-            ++current_value;
-            if (current_value < upper_bound_[i]) {
-                //increment current index and return
-                index_values_[i] = current_value;
-                data_manager_.set_index_value(index_id_[i], current_value);
-                more = true;
-                break;
-            } else {
-                //wrap around and handle next index
-                index_values_[i] = lower_seg_[i];
-                data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+    inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
             }
-        } //if here, then all indices are at their max value
-        return more;
-    }
-    
-    bool Fragment_ij_aa__PardoLoopManager::increment_single_index(int index){
-        bool more = false; 	// More iterations?
-        int current_value;
-        current_value = data_manager_.index_value(index_id_[index]);
-        ++current_value;
-        if (current_value < upper_bound_[index]) {
-            //increment current index and return
-            index_values_[index] = current_value;
-            data_manager_.set_index_value(index_id_[index], current_value);
-            more = true;
-        } else {
-            //wrap around and handle next index
-            index_values_[index] = lower_seg_[index];
-            data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
         }
-        return more;
+        more_iterations = true;
+        return more_iterations;
     }
-    
-    
-    /*
-     the generic where clauses are:
-     typ = 1: map AO to fragment
-     typ = 2: map Occ to fragment
-     typ = 3: map Virt to fragment
-     typ = 4: map elst_dist(ifrag,jfrag) == ifrag
-     typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
-     typ = 0: ifrag != jfrag
-     */
-    bool Fragment_ij_aa__PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
-        bool where_clause;
-        int ij = 0;
-        switch (typ) {
-                
-            case 1: // check against ao index
-                where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
-                break;
-                
-            case 2: // check against occ index
-                where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
-                break;
-                
-            case 3: // check against virt index
-                where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
-                break;
-                
-            case 4: // check elst_dist[ifrag,jfrag] == ifrag
-                where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
-                break;
-                
-            case 5: // check rcut_dist[ifrag,jfrag] == ifrag
-                
-                //break;
-                
-            case 0:
-                where_clause = index_values_[frag] != index_values_[index];
-                break;
-            default:
-                where_clause = false;
-        }
-        //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
-        return where_clause;
+
+/*!
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_aa__PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
     }
-    
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_aa__PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_aa__PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_aa__PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_aa__PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+
+/*!
+ -------------------------------------------
+ _ij_ao_vo_
+ -------------------------------------------
+
+ PARDO ifrag, jfrag, mu, i, b, j #GETLINE: Fragment_ij_ao_vo_
+ where (int)elst_dist[ifrag,jfrag] == ifrag
+ where (int)SwAO_frag[(index)mu] == ifrag
+ where (int)SwOccA_frag[(index)i] == ifrag
+ where (int)SwVirtA_frag[(index)b] == jfrag
+ where (int)SwOccA_frag[(index)j] == jfrag
+ */
+
     
     /*
      for each new special fragment where clause pattern, this should be the only thing realy changed.
      see comment above for fragment_special_where_clause syntax
      */
-    bool Fragment_ij_aa__PardoLoopManager::where_clause(int index) {
+    bool Fragment_ij_ao_vo_PardoLoopManager::where_clause(int index) {
         bool where_;
         int ifrag = 0;
         int jfrag = 1;
         int ao = 1;
         int occ = 2;
         int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
         
         switch (index) {
             case 0:
             case 1:
-                where_ = fragment_special_where_clause(4,jfrag,ifrag);
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
                 break;
             case 2:
-                where_ = fragment_special_where_clause(ao,2,ifrag);
+                where_ = fragment_special_where_clause(ao,index,ifrag);
                 break;
             case 3:
-                where_ = fragment_special_where_clause(ao,3,ifrag);
+                where_ = fragment_special_where_clause(occ,index,ifrag);
                 break;
+            case 4:
+                where_ = fragment_special_where_clause(virt,index,jfrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
                 break;
             default:
                 where_ = false;
@@ -758,131 +914,62 @@ inline bool Fragment_ij_aa__PardoLoopManager::initialize_indices() {
         return where_;
     }
     
-
-
-
-bool Fragment_ij_aa__PardoLoopManager::increment_special(){
-	// Go over indices in this order
-	// ifrag, jfrag
-	bool more_ifrag_jfrag = false;
-	bool more = false;
-
-restart_ij_aa___ifrag_jfrag:
-	{
-        more_ifrag_jfrag = increment_simple_pair();
-		if (!(index_values_[0] != index_values_[1] && where_clause(0))){
-			if (more_ifrag_jfrag){
-				goto restart_ij_aa___ifrag_jfrag;
-			} else {
-				goto return_increment_special_ij_aa__;
-			}
-		}
-	}
-
-restart_ij_aa___1: // ao in ifrag
-	{
-        more = increment_single_index(2);
+    bool Fragment_ij_ao_vo_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
         
-	    if (!where_clause(2)) {
-		    if (more) {
-			    goto restart_ij_aa___1;
-		    } else {
-			    goto restart_ij_aa___ifrag_jfrag;
-		    }
-	    }
-	}
-
-restart_ij_aa___2: // ao in ifrag
-	{
-        more = increment_single_index(3);
-	    if (!where_clause(3)) {
-		    if (more) {
-			    goto restart_ij_aa___2;
-		    } else {
-			    goto restart_ij_aa___ifrag_jfrag;
-		    }
-	    }
-	}
-
-
-return_increment_special_ij_aa__:
-	return more_ifrag_jfrag;
-}
-
-bool Fragment_ij_aa__PardoLoopManager::do_update() {
-
-	if (to_exit_)
-		return false;
-	bool more_iters = false;
-	if (first_time_) {
-		first_time_ = false;
-		bool first_iteration = initialize_indices();
-		if (first_iteration){
-			bool do_first_iteration = interpreter_->interpret_where(num_where_clauses_);
-			if (do_first_iteration)
-				return true;
-			else
-				more_iters = increment_special();
-		}
-	} else {
-		more_iters = increment_special();
-	}
-
-	while(more_iters){
-		interpreter_->skip_where_clauses(num_where_clauses_);
-		iteration_++;
-		if ((iteration_-1) % num_workers_ == company_rank_){
-			return true;
-		}
-		more_iters = increment_special();
-	}
-	return more_iters; //this should be false here
-}
-
-void Fragment_ij_aa__PardoLoopManager::do_finalize() {
-	for (int i = 0; i < num_indices_; ++i) {
-		data_manager_.set_index_undefined(index_id_[i]);
-	}
-}
-
-std::string Fragment_ij_aa__PardoLoopManager::to_string() const {
-	std::stringstream ss;
-	ss << "Fragment_ij_aa__PardoLoopManager:  num_indices="
-			<< num_indices_ << std::endl;
-	ss << "index_ids_=[";
-	for (int i = 0; i < num_indices_; ++i) {
-		ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
-	}
-	ss << "] lower_seg_=[";
-	for (int i = 0; i < num_indices_; ++i) {
-		ss << (i == 0 ? "" : ",") << lower_seg_[i];
-	}
-	ss << "] upper_bound_=[";
-	for (int i = 0; i < num_indices_; ++i) {
-		ss << (i == 0 ? "" : ",") << upper_bound_[i];
-	}
-	ss << "] current= [";
-	for (int i = 0; i < num_indices_; ++i) {
-		ss << (i == 0 ? "" : ",")
-				<< data_manager_.index_value_to_string(index_id_[i]);
-	}
-	ss << "]";
-	return ss.str();
-}
-
-std::ostream& operator<<(std::ostream& os,
-		const Fragment_ij_aa__PardoLoopManager &obj) {
-	os << obj.to_string();
-	return os;
-}
-
-
-/*
- -------------------------------------------
- _ij_ao_vo_
- -------------------------------------------
- */
-
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = where_clause(1) && where_clause(2) && where_clause(3) && where_clause(4) && where_clause(5);
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
 
 Fragment_ij_ao_vo_PardoLoopManager::Fragment_ij_ao_vo_PardoLoopManager(
 		int num_indices, const int (&index_id)[MAX_RANK],
@@ -907,6 +994,7 @@ Fragment_ij_ao_vo_PardoLoopManager::Fragment_ij_ao_vo_PardoLoopManager(
 	}
     
     form_elst_dist();
+    //form_rcut_dist();
     form_swao_frag();
     form_swocca_frag();
     form_swvirta_frag();
@@ -915,22 +1003,11 @@ Fragment_ij_ao_vo_PardoLoopManager::Fragment_ij_ao_vo_PardoLoopManager(
 Fragment_ij_ao_vo_PardoLoopManager::~Fragment_ij_ao_vo_PardoLoopManager() {}
 
 bool Fragment_ij_ao_vo_PardoLoopManager::increment_simple_pair(){
-    bool more = false; 	// More iterations?
+    bool more = false;      // More iterations?
     int current_value;
     for (int i = 0; i < 2; ++i) {
-        current_value = data_manager_.index_value(index_id_[i]);
-        ++current_value;
-        if (current_value < upper_bound_[i]) {
-            //increment current index and return
-            index_values_[i] = current_value;
-            data_manager_.set_index_value(index_id_[i], current_value);
-            more = true;
-            break;
-        } else {
-            //wrap around and handle next index
-            index_values_[i] = lower_seg_[i];
-            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
-        }
+        more = increment_single_index(i);
+        if (more) {break;}
     } //if here, then all indices are at their max value
     return more;
 }
@@ -954,30 +1031,19 @@ bool Fragment_ij_ao_vo_PardoLoopManager::increment_single_index(int index){
 }
     
     
-    inline bool Fragment_ij_ao_vo_PardoLoopManager::increment_special() {
+    inline bool Fragment_ij_ao_vo_PardoLoopManager::increment_all() {
         bool more = false;      // More iterations?
         int current_value;
-        for (int i = 2; i < num_indices_; ++i) {
-            current_value = data_manager_.index_value(index_id_[i]);
-            ++current_value;
-            if (current_value < upper_bound_[i]) {
-                //increment current index and return
-                data_manager_.set_index_value(index_id_[i], current_value);
-                index_values_[i] = current_value;
-                more = true;
-                break;
-            } else {
-                //wrap around and handle next index
-                data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
-                index_values_[i] = lower_seg_[i];
-            }
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
         } //if here, then all indices are at their max value
         return more;
     }
     
     void Fragment_ij_ao_vo_PardoLoopManager::form_elst_dist() {
         int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
-        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager_.get_array(elst_dist_array_slot);
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
         double *val_elst_dist = bptr_elst_dist->get_data();
         int elst_dist_size = bptr_elst_dist->size();
         int num_frag = upper_bound_[0] - lower_seg_[0];
@@ -999,7 +1065,7 @@ bool Fragment_ij_ao_vo_PardoLoopManager::increment_single_index(int index){
 
     void Fragment_ij_ao_vo_PardoLoopManager::form_rcut_dist() {
         int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
-        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager_.get_array(rcut_dist_array_slot);
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
         double *val_rcut_dist = bptr_rcut_dist->get_data();
         int rcut_dist_size = bptr_rcut_dist->size();
         int num_frag = upper_bound_[0] - lower_seg_[0];
@@ -1021,7 +1087,7 @@ bool Fragment_ij_ao_vo_PardoLoopManager::increment_single_index(int index){
     
     void Fragment_ij_ao_vo_PardoLoopManager::form_swao_frag() {
         int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
-        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager_.get_array(swao_frag_array_slot);
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
         double *val_swao_frag = bptr_swao_frag->get_data();
         int swao_frag_size = bptr_swao_frag->size();
         swao_frag.resize(swao_frag_size);
@@ -1034,7 +1100,7 @@ bool Fragment_ij_ao_vo_PardoLoopManager::increment_single_index(int index){
     
     void Fragment_ij_ao_vo_PardoLoopManager::form_swocca_frag() {
         int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
-        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager_.get_array(swocca_frag_array_slot);
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
         double *val_swocca_frag = bptr_swocca_frag->get_data();
         int swocca_frag_size = bptr_swocca_frag->size();
         swocca_frag.resize(swocca_frag_size);
@@ -1047,7 +1113,7 @@ bool Fragment_ij_ao_vo_PardoLoopManager::increment_single_index(int index){
     
     void Fragment_ij_ao_vo_PardoLoopManager::form_swvirta_frag() {
         int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
-        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager_.get_array(swvirta_frag_array_slot);
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
         double *val_swvirta_frag = bptr_swvirta_frag->get_data();
         int swvirta_frag_size = bptr_swvirta_frag->size();
         swvirta_frag.resize(swvirta_frag_size);
@@ -1122,6 +1188,8 @@ bool Fragment_ij_ao_vo_PardoLoopManager::fragment_special_where_clause(int typ, 
             //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
             //where_clause = rcut_dist[ij] == index_values_[frag];
             //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
             
         case 0:
             where_clause = index_values_[frag] != index_values_[index];
@@ -1133,94 +1201,6 @@ bool Fragment_ij_ao_vo_PardoLoopManager::fragment_special_where_clause(int typ, 
     return where_clause;
 }
 
-
-/*
- for each new special fragment where clause pattern, this should be the only thing realy changed.
- see comment above for fragment_special_where_clause syntax
- */
-bool Fragment_ij_ao_vo_PardoLoopManager::where_clause(int index) {
-    bool where_;
-    int ifrag = 0;
-    int jfrag = 1;
-    int ao = 1;
-    int occ = 2;
-    int virt = 3;
-    switch (index) {
-        case 0:
-        case 1:
-            where_ = fragment_special_where_clause(4,jfrag,ifrag);
-            break;
-        case 2:
-            where_ = fragment_special_where_clause(ao,index,ifrag);
-            break;
-        case 3:
-            where_ = fragment_special_where_clause(occ,index,ifrag);
-            break;
-        case 4:
-            where_ = fragment_special_where_clause(virt,index,jfrag);
-            break;
-        case 5:
-            where_ = fragment_special_where_clause(occ,index,jfrag);
-            break;
-        default:
-            where_ = false;
-    }
-    return where_;
-}
-
-/*
- PARDO ifrag, jfrag, mu, i, b, j #GETLINE: Fragment_ij_ao_vo_
- where (int)elst_dist[ifrag,jfrag] == ifrag
- where (int)SwAO_frag[(index)mu] == ifrag
- where (int)SwOccA_frag[(index)i] == ifrag
- where (int)SwVirtA_frag[(index)b] == jfrag
- where (int)SwOccA_frag[(index)j] == jfrag
- */
-
-bool Fragment_ij_ao_vo_PardoLoopManager::do_update() {
-    if (to_exit_)
-        return false;
-    bool more_iters;
-    if (first_time_) {
-        first_time_ = false;
-        more_iters = initialize_indices();
-    } else {
-        more_iters = increment_special();
-    }
- 
-    while(more_iters){
-        bool where_clauses_value = false;
-        interpreter_->skip_where_clauses(num_where_clauses_);
-        //if true, the pc will be after the last where clause
-        //otherwise it is undefined
-        
-        where_clauses_value = where_clause(0) && where_clause(2) && where_clause(3) && where_clause(4) && where_clause(5);
-        
-        //for (int i = 0; i < num_indices_; ++i) {
-        //    std::cout << index_values_[i] << " ";
-        //}
-        //std::cout << where_clauses_value << std::endl;
-        if(where_clauses_value){
-            iteration_++;
-            if ((iteration_-1) % num_workers_ == company_rank_){
-                return true;
-            }
-        }
-        
-        //more_iters = //increment_special();
-    more_loops:
-        more_iters = increment_simple_pair();
-        //if (!more_iters && where_clause(0)) {
-        for (int i = 2; i < num_indices_; ++i) {
-            if (!more_iters && where_clause(i-1))
-            {
-                more_iters = increment_single_index(i);
-            } else if(!where_clause(i-1)) {goto more_loops;}
-        }
-        if (!where_clause(num_indices_ - 1)) {goto more_loops;}
-    }
-    return more_iters; //this should be false here
-}
 
 void Fragment_ij_ao_vo_PardoLoopManager::do_finalize() {
     for (int i = 0; i < num_indices_; ++i) {
@@ -1258,6 +1238,3712 @@ std::ostream& operator<<(std::ostream& os,
     os << obj.to_string();
     return os;
 }
+    
+    /*!
+     -------------------------------------------
+     _i_aaaaa__
+     -------------------------------------------
+     
+     PARDO ifrag, mu,....#GETLINE: Fragment_i_aaaaa__
+     where (int)SwAO_frag[(index)mu] == ifrag
+     .
+     .
+     .
+     */
+    
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_i_aaaaa__PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+        
+        
+        switch (index) {
+            case 0:
+                where_ = true;
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_i_aaaaa__PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = true;
+            for (int i = 1; i < num_indices_; ++i) {
+                where_clauses_value = where_clauses_value && where_clause(i);
+            }
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_single_index(0);
+            int index_start = 1;
+            if (!more_iters) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+    
+    Fragment_i_aaaaa__PardoLoopManager::Fragment_i_aaaaa__PardoLoopManager(
+                                                                           int num_indices, const int (&index_id)[MAX_RANK],
+                                                                           DataManager & data_manager, const SipTables & sip_tables,
+                                                                           SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+                                                                           Interpreter* interpreter, long& iteration) :
+    data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+                                                                       num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+                                                                                                                                             sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+                                                                                                                                                                                                                 sip_mpi_attr.company_rank()), num_workers_(
+                                                                                                                                                                                                                                                            sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+        
+        std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+        for (int i = 0; i < num_indices; ++i) {
+            lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+            upper_bound_[i] = lower_seg_[i]
+            + sip_tables_.num_segments(index_id_[i]);
+            sip::check(lower_seg_[i] < upper_bound_[i],
+                       "Pardo loop index " + sip_tables_.index_name(index_id_[i])
+                       + " has empty range",
+                       Interpreter::global_interpreter->line_number());
+        }
+        
+        //form_elst_dist();
+        //form_rcut_dist();
+        form_swao_frag();
+        //form_swocca_frag();
+        //form_swvirta_frag();
+    }
+    
+    Fragment_i_aaaaa__PardoLoopManager::~Fragment_i_aaaaa__PardoLoopManager() {}
+    
+    bool Fragment_i_aaaaa__PardoLoopManager::increment_simple_pair(){
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < 2; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    bool Fragment_i_aaaaa__PardoLoopManager::increment_single_index(int index){
+        bool more = false; 	// More iterations?
+        int current_value;
+        current_value = data_manager_.index_value(index_id_[index]);
+        ++current_value;
+        if (current_value < upper_bound_[index]) {
+            //increment current index and return
+            index_values_[index] = current_value;
+            data_manager_.set_index_value(index_id_[index], current_value);
+            more = true;
+        } else {
+            //wrap around and handle next index
+            index_values_[index] = lower_seg_[index];
+            data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+        }
+        return more;
+    }
+    
+    
+    inline bool Fragment_i_aaaaa__PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_i_aaaaa__PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_i_aaaaa__PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_i_aaaaa__PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_i_aaaaa__PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_i_aaaaa__PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_i_aaaaa__PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+    
+    /*
+     the generic where clauses are:
+     typ = 1: map AO to fragment
+     typ = 2: map Occ to fragment
+     typ = 3: map Virt to fragment
+     typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+     typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+     typ = 0: ifrag != jfrag
+     */
+    bool Fragment_i_aaaaa__PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+        bool where_clause;
+        int ij = 0;
+        switch (typ) {
+                
+            case 1: // check against ao index
+                //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+                where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+                break;
+                
+            case 2: // check against occ index
+                //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+                where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+                break;
+                
+            case 3: // check against virt index
+                //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+                where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+                break;
+                
+            case 4: // check elst_dist[ifrag,jfrag] == ifrag
+                //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+                //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+                //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+                //where_clause = elst_dist[ij] == index_values_[frag];
+                where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+                break;
+                
+            case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+                //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+                //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+                //where_clause = rcut_dist[ij] == index_values_[frag];
+                //break;
+                where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+                break;
+                
+            case 0:
+                where_clause = index_values_[frag] != index_values_[index];
+                break;
+            default:
+                where_clause = false;
+        }
+        //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+        return where_clause;
+    }
+    
+    
+    void Fragment_i_aaaaa__PardoLoopManager::do_finalize() {
+        for (int i = 0; i < num_indices_; ++i) {
+            data_manager_.set_index_undefined(index_id_[i]);
+        }
+    }
+    
+    std::string Fragment_i_aaaaa__PardoLoopManager::to_string() const {
+        std::stringstream ss;
+        ss << "Fragment_i_aaaaa__PardoLoopManager:  num_indices="
+        << num_indices_ << std::endl;
+        ss << "index_ids_=[";
+        for (int i = 0; i < num_indices_; ++i) {
+            ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+        }
+        ss << "] lower_seg_=[";
+        for (int i = 0; i < num_indices_; ++i) {
+            ss << (i == 0 ? "" : ",") << lower_seg_[i];
+        }
+        ss << "] upper_bound_=[";
+        for (int i = 0; i < num_indices_; ++i) {
+            ss << (i == 0 ? "" : ",") << upper_bound_[i];
+        }
+        ss << "] current= [";
+        for (int i = 0; i < num_indices_; ++i) {
+            ss << (i == 0 ? "" : ",")
+            << data_manager_.index_value_to_string(index_id_[i]);
+        }
+        ss << "]";
+        return ss.str();
+    }
+    
+    std::ostream& operator<<(std::ostream& os,
+                             const Fragment_i_aaaaa__PardoLoopManager &obj) {
+        os << obj.to_string();
+        return os;
+    }
+
+/*!
+ -------------------------------------------
+ _ij_aaaa__
+ -------------------------------------------
+
+ PARDO ifrag, jfrag, mu, i, b, j #GETLINE: Fragment_ij_aaaa__
+ where (int)elst_dist[ifrag,jfrag] == ifrag
+ where (int)SwAO_frag[(index)mu] == ifrag
+ */
+
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_aaaa__PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_aaaa__PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = true;
+            for (int i = 1; i < num_indices_; ++i) {
+                where_clauses_value = where_clauses_value && where_clause(i);
+            }
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_aaaa__PardoLoopManager::Fragment_ij_aaaa__PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    //form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_aaaa__PardoLoopManager::~Fragment_ij_aaaa__PardoLoopManager() {}
+
+bool Fragment_ij_aaaa__PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_aaaa__PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_aaaa__PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_aaaa__PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_aaaa__PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_aaaa__PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aaaa__PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aaaa__PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_aaaa__PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_aaaa__PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_aaaa__PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_aaaa__PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_aaaa__PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_aaaa__PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+/*!
+ -------------------------------------------
+ _ij_aa_aa_
+ -------------------------------------------
+ */
+
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_aa_aa_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+            case 3:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 4:
+            case 5:
+                where_ = fragment_special_where_clause(ao,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_aa_aa_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = true;
+            for (int i = 1; i < num_indices_; ++i) {
+                where_clauses_value = where_clauses_value && where_clause(i);
+            }
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_aa_aa_PardoLoopManager::Fragment_ij_aa_aa_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    //form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_aa_aa_PardoLoopManager::~Fragment_ij_aa_aa_PardoLoopManager() {}
+
+bool Fragment_ij_aa_aa_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_aa_aa_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_aa_aa_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_aa_aa_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_aa_aa_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_aa_aa_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aa_aa_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aa_aa_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_aa_aa_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_aa_aa_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_aa_aa_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_aa_aa_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_aa_aa_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_aa_aa_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+/*!
+ -------------------------------------------
+ _ij_ao_ao_
+ -------------------------------------------
+ */
+
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_ao_ao_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(ao,index,jfrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_ao_ao_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = true;
+            for (int i = 1; i < num_indices_; ++i) {
+                where_clauses_value = where_clauses_value && where_clause(i);
+            }
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_ao_ao_PardoLoopManager::Fragment_ij_ao_ao_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_ao_ao_PardoLoopManager::~Fragment_ij_ao_ao_PardoLoopManager() {}
+
+bool Fragment_ij_ao_ao_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_ao_ao_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_ao_ao_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_ao_ao_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_ao_ao_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_ao_ao_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_ao_ao_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_ao_ao_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_ao_ao_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_ao_ao_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_ao_ao_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_ao_ao_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_ao_ao_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_ao_ao_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+/*!
+ -------------------------------------------
+ _ij_aa_oo_
+ -------------------------------------------
+ */
+
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_aa_oo_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_aa_oo_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = true;
+            for (int i = 1; i < num_indices_; ++i) {
+                where_clauses_value = where_clauses_value && where_clause(i);
+            }
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_aa_oo_PardoLoopManager::Fragment_ij_aa_oo_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_aa_oo_PardoLoopManager::~Fragment_ij_aa_oo_PardoLoopManager() {}
+
+bool Fragment_ij_aa_oo_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_aa_oo_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_aa_oo_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_aa_oo_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_aa_oo_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_aa_oo_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aa_oo_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aa_oo_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_aa_oo_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_aa_oo_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_aa_oo_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_aa_oo_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_aa_oo_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_aa_oo_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+/*!
+ -------------------------------------------
+ _ij_aoa_o_
+ -------------------------------------------
+ */
+
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_aoa_o_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_aoa_o_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = true;
+            for (int i = 1; i < num_indices_; ++i) {
+                where_clauses_value = where_clauses_value && where_clause(i);
+            }
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_aoa_o_PardoLoopManager::Fragment_ij_aoa_o_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_aoa_o_PardoLoopManager::~Fragment_ij_aoa_o_PardoLoopManager() {}
+
+bool Fragment_ij_aoa_o_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_aoa_o_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_aoa_o_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_aoa_o_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_aoa_o_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_aoa_o_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aoa_o_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aoa_o_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_aoa_o_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_aoa_o_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_aoa_o_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_aoa_o_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_aoa_o_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_aoa_o_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+/*!
+ -------------------------------------------
+ _ij_av_oo_
+ -------------------------------------------
+ */
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_av_oo_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(virt,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_av_oo_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = where_clause(1) && where_clause(2) && where_clause(3) && where_clause(4) && where_clause(5);
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_av_oo_PardoLoopManager::Fragment_ij_av_oo_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    form_swvirta_frag();
+}
+
+Fragment_ij_av_oo_PardoLoopManager::~Fragment_ij_av_oo_PardoLoopManager() {}
+
+bool Fragment_ij_av_oo_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_av_oo_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_av_oo_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_av_oo_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_av_oo_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_av_oo_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_av_oo_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_av_oo_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_av_oo_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_av_oo_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_av_oo_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_av_oo_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_av_oo_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_av_oo_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+    
+
+/*!
+ -------------------------------------------
+ _ij_ao_oo_
+ -------------------------------------------
+ */
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_ao_oo_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_ao_oo_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = where_clause(1) && where_clause(2) && where_clause(3) && where_clause(4) && where_clause(5);
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_ao_oo_PardoLoopManager::Fragment_ij_ao_oo_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_ao_oo_PardoLoopManager::~Fragment_ij_ao_oo_PardoLoopManager() {}
+
+bool Fragment_ij_ao_oo_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_ao_oo_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_ao_oo_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_ao_oo_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_ao_oo_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_ao_oo_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_ao_oo_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_ao_oo_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_ao_oo_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_ao_oo_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_ao_oo_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_ao_oo_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_ao_oo_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_ao_oo_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+    
+/*!
+ -------------------------------------------
+ _ij_oo_ao_
+ -------------------------------------------
+ */
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_oo_ao_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(ao,index,jfrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_oo_ao_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = where_clause(1) && where_clause(2) && where_clause(3) && where_clause(4) && where_clause(5);
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_oo_ao_PardoLoopManager::Fragment_ij_oo_ao_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_oo_ao_PardoLoopManager::~Fragment_ij_oo_ao_PardoLoopManager() {}
+
+bool Fragment_ij_oo_ao_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_oo_ao_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_oo_ao_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_oo_ao_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_oo_ao_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_oo_ao_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_oo_ao_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_oo_ao_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_oo_ao_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_oo_ao_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_oo_ao_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_oo_ao_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_oo_ao_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_oo_ao_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+
+/*!
+ -------------------------------------------
+ _ij_aoo_o_
+ -------------------------------------------
+ */
+    
+    /*
+     for each new special fragment where clause pattern, this should be the only thing realy changed.
+     see comment above for fragment_special_where_clause syntax
+     */
+    bool Fragment_ij_aoo_o_PardoLoopManager::where_clause(int index) {
+        bool where_;
+        int ifrag = 0;
+        int jfrag = 1;
+        int ao = 1;
+        int occ = 2;
+        int virt = 3;
+        int elst = 4;
+        int rcut = 5;
+
+        
+        switch (index) {
+            case 0:
+            case 1:
+                where_ = fragment_special_where_clause(elst,jfrag,ifrag);
+                break;
+            case 2:
+                where_ = fragment_special_where_clause(ao,index,ifrag);
+                break;
+            case 3:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 4:
+                where_ = fragment_special_where_clause(occ,index,ifrag);
+                break;
+            case 5:
+                where_ = fragment_special_where_clause(occ,index,jfrag);
+                break;
+            default:
+                where_ = false;
+        }
+        return where_;
+    }
+    
+    bool Fragment_ij_aoo_o_PardoLoopManager::do_update() {
+        if (to_exit_)
+            return false;
+        bool more_iters;
+        if (first_time_) {
+            first_time_ = false;
+            more_iters = initialize_indices();
+        } else {
+            more_iters = increment_all();
+        }
+        
+        while(more_iters){
+            bool where_clauses_value = false;
+            interpreter_->skip_where_clauses(num_where_clauses_);
+            //if true, the pc will be after the last where clause
+            //otherwise it is undefined
+            
+            where_clauses_value = where_clause(1) && where_clause(2) && where_clause(3) && where_clause(4) && where_clause(5);
+            
+            //for (int i = 0; i < num_indices_; ++i) {
+            //    std::cout << index_values_[i] << " ";
+            //}
+            //std::cout << where_clauses_value << std::endl;
+            if(where_clauses_value){
+                iteration_++;
+                if ((iteration_-1) % num_workers_ == company_rank_){
+                    return true;
+                }
+            }
+            
+        more_loops:
+            // increment ifrag,jfrag first.
+            more_iters = increment_simple_pair();
+            if (!where_clause(0) && more_iters){
+                goto more_loops;
+            }
+            int index_start = 2;
+            if (!more_iters && where_clause(1)) {
+                for (int i = index_start; i < num_indices_; ++i) {
+                    // we can increment the next index
+                    if (!more_iters)
+                    {
+                        more_iters = increment_single_index(i);
+                    }
+                    // if we no longer satisfy the where clause, go back to begining because segment ordering will ensure we have no more.
+                    if (!where_clause(i)) {
+                        goto more_loops;
+                    }
+                }
+            }
+            
+            // peak here at the last where clause, which is not checked by the incrementer.
+            if (!where_clause(num_indices_ - 1)) {goto more_loops;}
+        }
+        return more_iters; //this should be false here
+    }
+
+Fragment_ij_aoo_o_PardoLoopManager::Fragment_ij_aoo_o_PardoLoopManager(
+		int num_indices, const int (&index_id)[MAX_RANK],
+		DataManager & data_manager, const SipTables & sip_tables,
+		SIPMPIAttr & sip_mpi_attr, int num_where_clauses,
+		Interpreter* interpreter, long& iteration) :
+		data_manager_(data_manager), sip_tables_(sip_tables), num_indices_(
+				num_indices), first_time_(true), iteration_(iteration), sip_mpi_attr_(
+				sip_mpi_attr), num_where_clauses_(num_where_clauses), company_rank_(
+				sip_mpi_attr.company_rank()), num_workers_(
+				sip_mpi_attr_.num_workers()), interpreter_(interpreter) {
+
+	std::copy(index_id + 0, index_id + MAX_RANK, index_id_ + 0);
+	for (int i = 0; i < num_indices; ++i) {
+		lower_seg_[i] = sip_tables_.lower_seg(index_id_[i]);
+		upper_bound_[i] = lower_seg_[i]
+				+ sip_tables_.num_segments(index_id_[i]);
+		sip::check(lower_seg_[i] < upper_bound_[i],
+				"Pardo loop index " + sip_tables_.index_name(index_id_[i])
+						+ " has empty range",
+				Interpreter::global_interpreter->line_number());
+	}
+    
+    form_elst_dist();
+    //form_rcut_dist();
+    form_swao_frag();
+    form_swocca_frag();
+    //form_swvirta_frag();
+}
+
+Fragment_ij_aoo_o_PardoLoopManager::~Fragment_ij_aoo_o_PardoLoopManager() {}
+
+bool Fragment_ij_aoo_o_PardoLoopManager::increment_simple_pair(){
+    bool more = false;      // More iterations?
+    int current_value;
+    for (int i = 0; i < 2; ++i) {
+        more = increment_single_index(i);
+        if (more) {break;}
+    } //if here, then all indices are at their max value
+    return more;
+}
+
+bool Fragment_ij_aoo_o_PardoLoopManager::increment_single_index(int index){
+    bool more = false; 	// More iterations?
+    int current_value;
+    current_value = data_manager_.index_value(index_id_[index]);
+    ++current_value;
+    if (current_value < upper_bound_[index]) {
+        //increment current index and return
+        index_values_[index] = current_value;
+        data_manager_.set_index_value(index_id_[index], current_value);
+        more = true;
+    } else {
+        //wrap around and handle next index
+        index_values_[index] = lower_seg_[index];
+        data_manager_.set_index_value(index_id_[index], lower_seg_[index]);
+    }
+    return more;
+}
+    
+    
+    inline bool Fragment_ij_aoo_o_PardoLoopManager::increment_all() {
+        bool more = false;      // More iterations?
+        int current_value;
+        for (int i = 0; i < num_indices_; ++i) {
+            more = increment_single_index(i);
+            if (more) {break;}
+        } //if here, then all indices are at their max value
+        return more;
+    }
+    
+    void Fragment_ij_aoo_o_PardoLoopManager::form_elst_dist() {
+        int elst_dist_array_slot = sip_tables_.array_slot(std::string("elst_dist"));
+        Block::BlockPtr bptr_elst_dist = data_manager_.contiguous_array_manager().get_array(elst_dist_array_slot);
+        double *val_elst_dist = bptr_elst_dist->get_data();
+        int elst_dist_size = bptr_elst_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        elst_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            elst_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                elst_dist[j][i] = (int)val_elst_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << elst_dist[j][i] << " " << val_elst_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+
+    void Fragment_ij_aoo_o_PardoLoopManager::form_rcut_dist() {
+        int rcut_dist_array_slot = sip_tables_.array_slot(std::string("rcut_dist"));
+        Block::BlockPtr bptr_rcut_dist = data_manager_.contiguous_array_manager().get_array(rcut_dist_array_slot);
+        double *val_rcut_dist = bptr_rcut_dist->get_data();
+        int rcut_dist_size = bptr_rcut_dist->size();
+        int num_frag = upper_bound_[0] - lower_seg_[0];
+        rcut_dist.resize(num_frag);
+        for (int i = 0; i < num_frag; ++i) {
+            //std::cout << i << std::endl;
+            rcut_dist[i].resize(num_frag);
+        }
+        int ij = 0;
+        for (int i = 0; i < num_frag; ++i) {
+            for (int j = 0; j < num_frag; ++j) {
+                rcut_dist[j][i] = (int)val_rcut_dist[ij];
+                //std::cout << i << " " << j << " " << ij << " " << rcut_dist[j][i] << " " << val_rcut_dist[ij]<< std::endl;
+                ++ij;
+            }
+        }
+        return;
+    }
+    
+    void Fragment_ij_aoo_o_PardoLoopManager::form_swao_frag() {
+        int swao_frag_array_slot = sip_tables_.array_slot(std::string("swao_frag"));
+        Block::BlockPtr bptr_swao_frag = data_manager_.contiguous_array_manager().get_array(swao_frag_array_slot);
+        double *val_swao_frag = bptr_swao_frag->get_data();
+        int swao_frag_size = bptr_swao_frag->size();
+        swao_frag.resize(swao_frag_size);
+        for (int i = 0; i < swao_frag_size; ++i) {
+            swao_frag[i] = (int)val_swao_frag[i];
+            //std::cout << "vec " << swao_frag[i] << " data " << val_swao_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aoo_o_PardoLoopManager::form_swocca_frag() {
+        int swocca_frag_array_slot = sip_tables_.array_slot(std::string("swocca_frag"));
+        Block::BlockPtr bptr_swocca_frag = data_manager_.contiguous_array_manager().get_array(swocca_frag_array_slot);
+        double *val_swocca_frag = bptr_swocca_frag->get_data();
+        int swocca_frag_size = bptr_swocca_frag->size();
+        swocca_frag.resize(swocca_frag_size);
+        for (int i = 0; i < swocca_frag_size; ++i) {
+            swocca_frag[i] = (int)val_swocca_frag[i];
+            //std::cout << "vec " << swocca_frag[i] << " data " << val_swocca_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    void Fragment_ij_aoo_o_PardoLoopManager::form_swvirta_frag() {
+        int swvirta_frag_array_slot = sip_tables_.array_slot(std::string("swvirta_frag"));
+        Block::BlockPtr bptr_swvirta_frag = data_manager_.contiguous_array_manager().get_array(swvirta_frag_array_slot);
+        double *val_swvirta_frag = bptr_swvirta_frag->get_data();
+        int swvirta_frag_size = bptr_swvirta_frag->size();
+        swvirta_frag.resize(swvirta_frag_size);
+        for (int i = 0; i < swvirta_frag_size; ++i) {
+            swvirta_frag[i] = (int)val_swvirta_frag[i];
+            //std::cout << "vec " << swvirta_frag[i] << " data " << val_swvirta_frag[i] << std::endl;
+        }
+        return;
+    }
+    
+    inline bool Fragment_ij_aoo_o_PardoLoopManager::initialize_indices() {
+        //initialize values of all indices
+        bool more_iterations = true;
+        for (int i = 0; i < num_indices_; ++i) {
+            if (lower_seg_[i] >= upper_bound_[i]) {
+                more_iterations = false; //this loop has an empty range in at least one dimension.
+                return more_iterations;
+            }
+            sip::check(
+                       data_manager_.index_value(index_id_[i])
+                       == DataManager::undefined_index_value,
+                       "SIAL or SIP error, index "
+                       + sip_tables_.index_name(index_id_[i])
+                       + " already has value before loop",
+                       Interpreter::global_interpreter->line_number());
+            index_values_[i] = lower_seg_[i];
+            data_manager_.set_index_value(index_id_[i], lower_seg_[i]);
+        }
+        more_iterations = true;
+        return more_iterations;
+    }
+
+/*
+ the generic where clauses are:
+ typ = 1: map AO to fragment
+ typ = 2: map Occ to fragment
+ typ = 3: map Virt to fragment
+ typ = 4: map elst_dist(ifrag,jfrag) == ifrag
+ typ = 5: map rcut_dist(ifrag,jfrag) == ifrag
+ typ = 0: ifrag != jfrag
+ */
+bool Fragment_ij_aoo_o_PardoLoopManager::fragment_special_where_clause(int typ, int index, int frag) {
+    bool where_clause;
+    int ij = 0;
+    switch (typ) {
+            
+        case 1: // check against ao index
+            //where_clause = return_val_swao_frag(index_values_[index])     == index_values_[frag];
+            where_clause = swao_frag[index_values_[index] - lower_seg_[index]]     == index_values_[frag];
+            break;
+            
+        case 2: // check against occ index
+            //where_clause = return_val_swocca_frag(index_values_[index])   == index_values_[frag];
+            where_clause = swocca_frag[index_values_[index] - lower_seg_[index]]   == index_values_[frag];
+            break;
+            
+        case 3: // check against virt index
+            //where_clause = return_val_swvirta_frag(index_values_[index])  == index_values_[frag];
+            where_clause = swvirta_frag[index_values_[index] - lower_seg_[index]]  == index_values_[frag];
+            break;
+            
+        case 4: // check elst_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_elst_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[frag] - 1 + (upper_bound_[0])*(index_values_[index] - 1);
+            //std::cout << index_values_[index] << " " << index_values_[frag] << " " << ij << " " << elst_dist[ij] << std::endl;
+            //where_clause = elst_dist[ij] == index_values_[frag];
+            where_clause = elst_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 5: // check rcut_dist[ifrag,jfrag] == ifrag
+            //where_clause = return_val_rcut_dist(index_values_[frag], index_values_[index]) == index_values_[frag];
+            //ij = index_values_[index] - 1 + upper_bound_[0]*(index_values_[frag] - 1);
+            //where_clause = rcut_dist[ij] == index_values_[frag];
+            //break;
+            where_clause = rcut_dist[index_values_[frag] - lower_seg_[frag]][index_values_[index] - lower_seg_[index]] == index_values_[frag];
+            break;
+            
+        case 0:
+            where_clause = index_values_[frag] != index_values_[index];
+            break;
+        default:
+            where_clause = false;
+    }
+    //std::cout << "where_clause " << typ << " " << index_values_[index] << " " << index_values_[frag] << " " << where_clause << std::endl;
+    return where_clause;
+}
+
+
+void Fragment_ij_aoo_o_PardoLoopManager::do_finalize() {
+    for (int i = 0; i < num_indices_; ++i) {
+        data_manager_.set_index_undefined(index_id_[i]);
+    }
+}
+
+std::string Fragment_ij_aoo_o_PardoLoopManager::to_string() const {
+    std::stringstream ss;
+    ss << "Fragment_ij_aoo_o_PardoLoopManager:  num_indices="
+    << num_indices_ << std::endl;
+    ss << "index_ids_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << sip_tables_.index_name(index_id_[i]);
+    }
+    ss << "] lower_seg_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << lower_seg_[i];
+    }
+    ss << "] upper_bound_=[";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",") << upper_bound_[i];
+    }
+    ss << "] current= [";
+    for (int i = 0; i < num_indices_; ++i) {
+        ss << (i == 0 ? "" : ",")
+        << data_manager_.index_value_to_string(index_id_[i]);
+    }
+    ss << "]";
+    return ss.str();
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const Fragment_ij_aoo_o_PardoLoopManager &obj) {
+    os << obj.to_string();
+    return os;
+}
+    
     
     /*
      // this bock is commented out because we want to load the arrays at once.  These will break now also because the included values are statics instead of locals.  keep around just in case.

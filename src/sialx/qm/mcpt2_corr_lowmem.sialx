@@ -1,443 +1,7 @@
 import "trans_frag_defs.sialx" 
-#import "mcpt2_vars.sialx"
+import "mcpt2_vars.sialx"
 #
                            SIAL FRAG_2ORDER_CORR 
-# Declare indeces 
-# --------------- 
-#
-      index   kiter  = 1: 25 # microiterations 
-      index   jiter  = 1: 10 # macroiterations 
-      index   ifrag  = 1: nfrags # Nsolute   
-      index  iifrag  = 1: nfrags # Nsolute    
-      index   katom  = 1: nfrags # Nfrags  
-      index   jatom  = 1: nfrags # Nfrags  
-
-      index   jfrag  = 1: nfrags # Nfragments   
-      index  jjfrag  = 1: nfrags # Nfragments   
-      index   kfrag  = 1: nfrags # Nfragments   
-      index  kkfrag  = 1: nfrags # Nfragments   
-
-      index   ao_scratch    = 1: max_aoseg    # maximum ao segment size 
-      index   alpha_scratch = 1: max_alphaseg # maximum alpha segment size 
-      index   beta_scratch  = 1: max_betaseg  # maximum beta segment size 
-
-      index  isolute = 1: 1 
-      index  jsolute = 1: 1 
-      index      ii  = 1: 1  # 1 
-
-      aoindex mu     = 1: norb 
-      aoindex mu1    = 1: norb 
-      aoindex nu     = 1: norb 
-      aoindex nu1    = 1: norb 
-      aoindex lambda = 1: norb 
-      aoindex lambda1= 1: norb 
-      aoindex sigma =  1: norb 
-      aoindex sigma1=  1: norb 
-#
-      moaindex i = baocc: eaocc  
-      moaindex i1= baocc: eaocc  
-      moaindex i2= baocc: eaocc  
-#
-      moaindex a = bavirt: eavirt   
-      moaindex a1= bavirt: eavirt   
-      moaindex a2= bavirt: eavirt   
-#
-      moaindex j = baocc: eaocc  
-      moaindex j1= baocc: eaocc  
-#
-      moaindex b = bavirt: eavirt   
-      moaindex b1= bavirt: eavirt   
-#
-      moaindex p = baocc: eavirt
-      moaindex p1= baocc: eavirt
-#
-      moaindex q = baocc: eavirt
-      moaindex q1= baocc: eavirt
-
-      index smu = 1:norb
-      index si = baocc: eaocc
-      index sa = bavirt: eavirt
-#
-# Declare scalars 
-# --------------- 
-#
-      int rmaster
-      scalar etemp 
-      scalar etemp1
-      scalar etemp2
-      scalar etemp3
-      scalar mone  
-      scalar zero  
-      scalar one 
-      scalar two 
-      scalar rank 
-      scalar n_frags 
-      scalar fcount 
-      scalar icount 
-      scalar jcount 
-      scalar pcount 
-      scalar qcount 
-      scalar rcount 
-      scalar scount 
-      scalar i_aostart  
-      scalar i_aoend   
-      scalar j_aostart  
-      scalar j_aoend   
-      scalar i_vstart 
-      scalar i_vend  
-      scalar j_vstart 
-      scalar j_vend  
-      scalar a_vstart 
-      scalar a_vend  
-      scalar b_vstart 
-      scalar b_vend  
-      scalar m  
-      scalar m1 
-      scalar m2 
-      scalar n  
-      scalar n1 
-      scalar n2 
-      scalar l  
-      scalar s  
-      scalar r  
-      scalar solute 
-      scalar et1_correction 
-      scalar et2_correction 
-      scalar eold 
-      scalar esum 
-      scalar ediff
-      scalar escr
-      scalar e1x_at 
-      scalar e10pol_at 
-      scalar mono_lccd  
-      scalar elccd
-      scalar singles 
-      scalar dimer_doubles 
-      scalar fragment_doubles 
-      scalar eint_tot 
-      scalar eps1_pol 
-      scalar e2x_at 
-      scalar e1old 
-      scalar e1new  
-      scalar e2old 
-      scalar e2new  
-      scalar ao_exit
-      scalar occ_exit 
-      scalar virt_exit 
-      scalar imax 
-      scalar zmax 
-      scalar nn_rep 
-      scalar pair_flag  
-      scalar do_iter 
-      scalar xDip_tot 
-      scalar yDip_tot 
-      scalar zDip_tot 
-      scalar se10c
-      scalar stype 
-#
-# Declare arrays  
-# -------------- 
-      distributed Dca[mu,p] 
-      distributed Dfock_a[p,p1] 
-      distributed oed_ovl[mu,nu]  
-      distributed SOVL[p,p1]  
-      distributed Pbar1_ai[a,i] 
-      distributed Hbar2_ia[i,a] 
-      distributed V1_x[i,i1] 
-      distributed Viijj_x[i,i1,j,j1]
-      distributed Vxiij[mu,i,i1,j] 
-      distributed Vjiij[j1,i,i1,j] 
-      distributed Viiij[j1,i,i1,j] 
-      distributed Vaaai[a,a1,a2,i] 
-      distributed Viaii[i,a,i1,i2] 
-      temp txxxp[mu,nu,lambda,p] 
-      temp txxpp[mu,nu,p1,p] 
-      temp txppp[mu,q,p1,p] 
-      local Lxxxp[mu,nu,lambda,p] 
-      local Lxxpp[mu,nu,p1,p] 
-      local Lxppp[mu,q,p1,p] 
-      local ca[mu,p] 
-      static fock_a[p] 
-      static Sx3[p] 
-      temp t3[p] 
-      temp t3_1[p] 
-#
-      temp aoint[mu,nu,lambda,sigma] 
-      temp txxxq[mu,nu,lambda,q]   
-      temp txpxq[mu,p,lambda,q]    
-      temp txpxqS[mu,p,lambda,q]    
-      temp txpqq[mu,p,q,j]   
-      temp txpqqS[mu,p,q,j]   
-      temp tppqq[p,p1,q,q1]   
-      temp tppqqS[p,p1,q,q1]   
-      temp tppppS[p,p1,q,q1]   
-      temp t1ppqqS[p,p1,q,q1]   
-      temp t1ppqq[p,p1,q,q1]   
-      temp t2ppqq[p,p1,q,q1]   
-      temp t3ppqq[p,p1,q,q1]   
-      temp tpppp[p,p1,q,q1]   
-      temp t1pppp[p,p1,q,q1]   
-      temp t2pppp[p,p1,q,q1]   
-      temp tpp[p,p1]   
-      temp t1pp[p,p1]   
-      temp t2pp[p,p1]   
-      temp t3pp[p,p1]   
-      temp taiai[a,i,a1,i1] 
-      temp t1aiai[a,i,a1,i1] 
-      temp t2aiai[a,i,a1,i1] 
-      temp xaiai[a,i,a1,i1] 
-      temp txixj[mu,i,nu,j] 
-
-      local LVxxxq[mu,nu,lambda,j] 
-      local LVxxqq[mu,nu,j,j1] 
-      distributed Vxpbq[mu,i,b,j] 
-
-      distributed Vaibj[a,i,b,j]
-      distributed Viabj[i,a,b,j]
-      distributed Vaajj[a,a1,j,j1]
-      distributed Vaaaj[a,a1,a2,j]
-      distributed Viijj[i,i1,j,j1]
-
-      distributed Vxpxq[mu,i,lambda,j] 
-      distributed Vxxqq[mu,nu,j1,j] 
-      distributed Vxxai[mu,nu,a,i] 
-      distributed Vxxqq_x[mu,nu,j1,j] 
-      distributed Vpxxq[i,nu,mu,j] 
-
-      distributed Vixbj[i,nu,b,j] 
-      distributed Vaxaj[a,nu,b,j] 
-      distributed Vixjj[i,nu,j,j1] 
-      distributed Vaxjj[a,nu,j1,j] 
-
-      distributed T20aiai[a,i,a1,i1] 
-      distributed T2old[a,i,a1,i1] 
-      distributed T2old_mono[a,i,a1,i1] 
-      distributed T2new[a,i,a1,i1] 
-      distributed TAO_ab[mu,i,nu,j] 
-      distributed T2AO_ab[mu,i,nu,j] 
-      
-      temp tpxxq[p,nu,lambda,q] 
-      temp tpxqq[p,nu,q,q1] 
-      temp txxqq[mu,nu,q,j1] 
-      temp Taixj[a,i,mu,j] 
-      temp T1aixj[a,i,mu,j] 
-      temp Txixi[nu,i,mu,j]
-
-      temp Ipp[p,p1] 
-      temp txj[mu,j]
-      temp txx[mu,nu]
-      temp t1xx[mu,nu]
-      temp t2xx[mu,nu]
-      temp t3xx[mu,nu]
-      temp tbx[b,nu]
-      temp tbj[b,j]
-      temp tai[a,i] 
-      temp t1ai[a,i] 
-      temp txp[mu,p] 
-      temp tpx[p,nu]
-#
-      local LDaixj[a,i,nu,j]
-
-      distributed e20disp[ifrag,jfrag] 
-      distributed e10exch[ifrag,jfrag] 
-      distributed e20exch[ifrag,jfrag] 
-      distributed e20exch_pbar[ifrag] 
-      distributed e10pol[ifrag,jfrag] 
-      distributed e10c[ifrag] 
-      distributed e10c_old[ifrag] 
-      distributed e1error[ifrag] 
-      distributed e2_macro[ifrag] 
-      distributed e20c[ifrag] 
-      distributed e20c_old[ifrag] 
-      distributed e2error[ifrag] 
-      distributed d20c[ifrag,jfrag] 
-      distributed d20c_old[ifrag,jfrag] 
-      distributed d2error[ifrag,jfrag] 
-      local sp[ifrag] 
-      temp tp[ifrag] 
-      temp t2p[ifrag] 
-      distributed wC[p,p1]  
-      distributed VE[p,p1]  
-      distributed VE_x[p,p1]  
-      distributed t1old[b,j]  
-      distributed t1new[b,j]  
-      distributed x1new[b,j]  
-      distributed wC_ao[mu,nu] 
-      distributed dip_xmom[kfrag] 
-      distributed dip_ymom[kfrag] 
-      distributed dip_zmom[kfrag] 
-      temp dipT[kfrag] 
-      distributed HFDENS[mu,nu] 
-      distributed DENS_ao[mu,nu] 
-      distributed DENSAA[p,p1] 
-      temp LwC_ao[mu,nu] 
-      local LwC[p,p1]  
-      temp t20disp[ifrag,jfrag] 
-      temp Tij[ifrag,jfrag]
-      temp T1ij[ifrag,jfrag]
-      local wAO_frag[mu] 
-      local wOccA_frag[i] 
-      local wOccB_frag[j] 
-      local wVirtA_frag[a] 
-      local wVirtB_frag[b] 
-      static SwAO_frag[smu] 
-      static SwOccA_frag[si]
-      static SwOccB_frag[si]
-      static SwVirtA_frag[sa]
-      static SwVirtB_frag[sa]
-      temp x1[mu]    
-      temp x2[nu]    
-      temp x3[lambda]
-      temp x4[sigma] 
-      temp xi[i]  
-      temp xi1[i]  
-      temp xi2[i]  
-      temp xj[j]  
-      temp xj1[j]  
-      temp xa[a]  
-      temp xa1[a]  
-      temp xa2[a]  
-      temp xb[b]  
-      temp xb1[b]  
-
-      static elst_dist[jfrag,kfrag]
-      static rcut_dist[jfrag,kfrag]
-
-      distributed DwAO_frag[mu]
-      distributed DwOccA_frag[i]
-      distributed DwOccB_frag[j]
-      distributed DwVirtA_frag[a]
-      distributed DwVirtB_frag[b]
-
-      contiguous local macro_e20[ifrag] 
-      contiguous local macro_d20[ifrag,jfrag] 
-      contiguous local initial_e10c[ifrag]
-      contiguous local final_e10c[ifrag]
-      contiguous local final_e20disp[ifrag,jfrag]
-      contiguous local final_e20exch[ifrag,jfrag]
-      contiguous local final_e10pol[ifrag,jfrag]
-      contiguous local final_e10exch[ifrag,jfrag]
-      contiguous local monomer_lccd[ifrag]
-      contiguous local x_dipole[kfrag]
-      contiguous local y_dipole[kfrag]
-      contiguous local z_dipole[kfrag]
-      contiguous local abs_dipole[kfrag]
-
-      contiguous local scr_1[ao_scratch,ao_scratch] 
-      contiguous local scr_2[ao_scratch,ao_scratch] 
-      contiguous local scr_3[ao_scratch,ao_scratch] 
-      contiguous local scr_4[ao_scratch,ao_scratch] 
-      contiguous local scr_5[ao_scratch,ao_scratch] 
-#
-# ----------------------------------------------------------------------------
-
-      PROC SET_FRAG_PARMS    
-#     ------------------- 
-#
-#     Determine the number of fragments  
-#     --------------------------------- 
-      execute set_frag n_frags
-     #print_scalar nfrags
-      allocate wAO_frag[*] 
-      allocate wOccA_frag[*] 
-      allocate wOccB_frag[*] 
-      allocate wVirtA_frag[*] 
-      allocate wVirtB_frag[*] 
-
-      #allocate SwAO_frag[*] 
-      #allocate SwOccA_frag[*] 
-      #allocate SwOccB_frag[*] 
-      #allocate SwVirtA_frag[*] 
-      #allocate SwVirtB_frag[*] 
-
-      #allocate elst_dist[*,*]
-      #allocate rcut_dist[*,*]
-
-      do kfrag
-      do jfrag
-	  where jfrag <= kfrag
-	  icount = (scalar)kfrag
-	  jcount = (scalar)jfrag
-
-          execute return_pairs icount jcount elst_thresh pair_flag 
-	  elst_dist[kfrag,jfrag] = 0.0
-	  elst_dist[jfrag,kfrag] = 0.0
-
-          if pair_flag > zero
-	  elst_dist[kfrag,jfrag] = (scalar)kfrag
-	  elst_dist[jfrag,kfrag] = (scalar)jfrag
-	  endif
-
-          execute return_pairs icount jcount r_thresh pair_flag 
-	  rcut_dist[kfrag,jfrag] = 0.0
-	  rcut_dist[jfrag,kfrag] = 0.0
-
-          if pair_flag > zero
-	  rcut_dist[kfrag,jfrag] = (scalar)kfrag
-	  rcut_dist[jfrag,kfrag] = (scalar)jfrag
-	  endif
-
-      enddo jfrag
-      enddo kfrag
-
-      do jfrag
-#
-	  icount = (scalar)jfrag
-          i_aostart = icount
-          i_aoend   = 1.0
-          execute frag_index_range i_aostart i_aoend
-         i_vstart  = icount
-         i_vend    = 6.0
-         execute frag_index_range i_vstart i_vend
-         a_vstart  = icount
-         a_vend    = 7.0
-         execute frag_index_range a_vstart a_vend
-
-          m = 0.0
-          do mu
-              m += 1.0
-              if m >= i_aostart
-              if m <= i_aoend
-              SwAO_frag[(index)mu] = (scalar)jfrag
-              wAO_frag[mu] = (scalar)jfrag
-              endif
-              endif
-          enddo mu
-         DO i
-            m = 0.0
-            do i1
-               m += 1.0
-               if i == i1
-                  exit
-               endif
-            enddo i1
-	    print i
-            if m >= i_vstart
-            if m <= i_vend
-               SwOccA_frag[(index)i] = (scalar)jfrag
-               wOccA_frag[i] = (scalar)jfrag
-            endif
-            endif
-         ENDDO i
-         DO a
-            m = 0.0
-            do a1
-               m += 1.0
-               if a == a1
-                  exit
-               endif
-            enddo a1
-            if m >= a_vstart
-            if m <= a_vend
-               SwVirtA_frag[(index)a] = (scalar)jfrag
-               wVirtA_frag[a] = (scalar)jfrag
-            endif
-            endif
-         ENDDO a
-      enddo jfrag
-
-      sip_barrier
-      ENDPROC SET_FRAG_PARMS    
 
       PROC FRAG_TRAN    
 #     -------------- 
@@ -449,7 +13,7 @@ import "trans_frag_defs.sialx"
 # ----------------------------------------------------------------------------
 #     zero wC_ao
 # ----------------------------------------------------------------------------
-      PARDO kfrag,mu,nu
+      PARDO kfrag,mu,nu #GETLINE: Fragment_i_aaaaa__
       where (int)SwAO_frag[(index)mu] == kfrag
       where (int)SwAO_frag[(index)nu] == kfrag
 
@@ -459,17 +23,16 @@ import "trans_frag_defs.sialx"
 
       server_barrier
 
+# ---------------------------------------------------------------------------- 
+#     Form wC_ao  
+# ---------------------------------------------------------------------------- 
+
       PARDO ifrag, jfrag, mu, nu #GETLINE: Fragment_ij_aa__
       WHERE jfrag != ifrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag      
 
-#
-# ---------------------------------------------------------------------------- 
-#     Form wC_ao  
-# ---------------------------------------------------------------------------- 
-#
 	  LwC_ao[mu,nu] = 0.0 
 
 	  DO j
@@ -538,17 +101,13 @@ import "trans_frag_defs.sialx"
 	  where (int)SwOccA_frag[(index)j] == jfrag
 	      deallocate LVxxqq[mu,nu,j,j]
 	  ENDDO j
-#
-# ---------------------------------------------------------------------------- 
-#     Done forming wC_ao  
-# ---------------------------------------------------------------------------- 
 
       ENDPARDO ifrag, jfrag, mu, nu
 
       sip_barrier
       print "Done initial formation of wC(AO)"
 
-      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
+      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aaaaa__
 	 where (int)SwAO_frag[(index)mu] == ifrag
          where (int)SwAO_frag[(index)nu] == ifrag
 
@@ -595,22 +154,19 @@ import "trans_frag_defs.sialx"
 
       print "Done Final formation of wC(MO)"
 
-      PARDO ifrag, jfrag 
-      where (int)elst_dist[ifrag,jfrag] == ifrag
-
-	  icount = (scalar)ifrag
-	  jcount = (scalar)jfrag
-
 # ---------------------------------------------------------------------------- 
 #     First stage --> form Vxxxj (1122) 
 # ---------------------------------------------------------------------------- 
 
-      DO mu 
+      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aa_aa_
+      where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
-      DO nu 
       where (int)SwAO_frag[(index)nu] == ifrag
-      do lambda
       where (int)SwAO_frag[(index)lambda] == jfrag
+
+	  icount = (scalar)ifrag
+	  jcount = (scalar)jfrag
+
 
 	  DO j 
 	  where (int)SwOccA_frag[(index)j] == jfrag
@@ -658,28 +214,17 @@ import "trans_frag_defs.sialx"
 	      deallocate LVxxxq[mu,nu,lambda,j] 
 	  ENDDO j 
 
-      enddo lambda
-
-      ENDDO nu 
-      ENDDO mu
-      ENDPARDO ifrag, jfrag 
+      ENDPARDO ifrag, jfrag, mu, nu, lambda
 
 # Exchange integrals 
 
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, nu, lambda, mu #GETLINE: Fragment_ij_aa_aa_
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwAO_frag[(index)lambda] == ifrag
+      where (int)SwAO_frag[(index)mu] == jfrag
          icount = (scalar)ifrag
          jcount = (scalar)jfrag
-
-      DO mu 
-      where (int)SwAO_frag[(index)mu] == jfrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO lambda 
-      where (int)SwAO_frag[(index)lambda] == ifrag
-
-	  icount = (scalar)ifrag
-	  jcount = (scalar)jfrag
 
 	  DO j 
 	  where (int)SwOccA_frag[(index)j] == jfrag
@@ -716,21 +261,15 @@ import "trans_frag_defs.sialx"
 	      deallocate LVxxxq[mu,nu,lambda,j] 
 	  ENDDO j 
 
-      ENDDO lambda 
-      ENDDO nu 
-      ENDDO mu
-      ENDPARDO ifrag, jfrag 
+      ENDPARDO ifrag, jfrag, nu, lambda, mu
 #
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aaaa__
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)mu] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwAO_frag[(index)lambda] == ifrag
          icount = (scalar)ifrag
          jcount = (scalar)jfrag
-      DO mu 
-      where (int)SwAO_frag[(index)mu] == ifrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO lambda 
-      where (int)SwAO_frag[(index)lambda] == ifrag
 
 	  DO j 
 	  where (int)SwOccA_frag[(index)j] == jfrag
@@ -768,36 +307,26 @@ import "trans_frag_defs.sialx"
 	      deallocate LVxxxq[mu,nu,lambda,j] 
 	  ENDDO j 
 
+      ENDPARDO ifrag, jfrag, mu, nu, lambda
+
 # ---------------------------------------------------------------------------- 
 #     Done second stage --> form Vixxj (1122) 
 # ---------------------------------------------------------------------------- 
-
-      ENDDO lambda 
-      ENDDO nu 
-      ENDDO mu
-
-      ENDPARDO ifrag, jfrag 
-
       sip_barrier 
       print "Done first two stages of two-electron integral transformation" 
-
-      PARDO ifrag, jfrag 
-      where (int)elst_dist[ifrag,jfrag] == ifrag
-         icount = (scalar)ifrag
-         jcount = (scalar)jfrag
 
 # ---------------------------------------------------------------------------- 
 #     Third stage --> form Vxibj (1122) 
 # ---------------------------------------------------------------------------- 
-#
-      DO mu
+
+      PARDO ifrag, jfrag, mu, i, lambda, j #GETLINE: Fragment_ij_ao_ao_
+      where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
-      DO i
       where (int)SwOccA_frag[(index)i] == ifrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
-      DO lambda
       where (int)SwAO_frag[(index)lambda] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
+         icount = (scalar)ifrag
+         jcount = (scalar)jfrag
 
 	  GET                    Vxpxq[mu,i,lambda,j] 
 
@@ -807,29 +336,20 @@ import "trans_frag_defs.sialx"
 	      PUT Vxpbq[mu,i,b,j] += txpqq[mu,i,b,j] 
 	  ENDDO b 
 
-      ENDDO lambda
-      ENDDO j 
-      ENDDO i
-      ENDDO mu
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag,jfrag, mu, i, lambda, j
 
 # ---------------------------------------------------------------------------- 
 #     Third stage --> form Vixbj (1122) 
 # ---------------------------------------------------------------------------- 
 #
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, nu, i, lambda, j #GETLINE: Fragment_ij_ao_ao_
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwAO_frag[(index)lambda] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
          icount = (scalar)ifrag
          jcount = (scalar)jfrag
-
-      DO i 
-      where (int)SwOccA_frag[(index)i] == ifrag
-      DO nu
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
-      DO lambda
-      where (int)SwAO_frag[(index)lambda] == jfrag
 
 	  GET                    Vpxxq[i,nu,lambda,j] 
 
@@ -844,24 +364,16 @@ import "trans_frag_defs.sialx"
 	      tpxqq[i,nu,j1,j]      = Vpxxq[i,nu,lambda,j]*ca[lambda,j1] 
 	      PUT Vixjj[i,nu,j1,j] += tpxqq[i,nu,j1,j] 
 	  ENDDO j1  
-      ENDDO lambda
-      ENDDO j 
-      ENDDO nu
-      ENDDO i 
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag,jfrag, nu, i, lambda, j
 #
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, nu, mu, j, j1 #GETLINE: Fragment_ij_aa_oo_
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwAO_frag[(index)mu] == ifrag
+      where (int)SwOccA_frag[(index)j1] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
          icount = (scalar)ifrag
          jcount = (scalar)jfrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO j1 
-      where (int)SwOccA_frag[(index)j1] == jfrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
-      DO mu 
-      where (int)SwAO_frag[(index)mu] == ifrag
 
 	  GET                 Vxxqq[mu,nu,j1,j] 
 
@@ -871,24 +383,16 @@ import "trans_frag_defs.sialx"
 	      PUT Vaxjj[a,nu,j1,j] += tpxqq[a,nu,j1,j] 
 	  ENDDO a 
 
-      ENDDO mu 
-      ENDDO j 
-      ENDDO j1 
-      ENDDO nu 
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag,jfrag, nu, mu, j, j1
 #
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag,nu,i,mu,j #GETLINE: Fragment_ij_ao_ao_
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwAO_frag[(index)mu] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
          icount = (scalar)ifrag
          jcount = (scalar)jfrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO i 
-      where (int)SwOccA_frag[(index)i] == ifrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
-	  DO mu 
-	  where (int)SwAO_frag[(index)mu] == jfrag
        
 		 GET                 Vxxqq_x[mu,nu,i,j] 
 
@@ -897,10 +401,15 @@ import "trans_frag_defs.sialx"
 		       txpqq[mu,i1,i,j]      = Vxxqq_x[mu,nu,i,j]*ca[nu,i1] 
 		       PUT Vxiij[mu,i1,i,j] += txpqq[mu,i1,i,j] 
 		 ENDDO i1  
-	  ENDDO mu 
 
-	  DO mu 
-	  where (int)SwAO_frag[(index)mu] == ifrag
+      ENDPARDO ifrag, jfrag,nu,i,mu,j
+
+      PARDO ifrag, jfrag,nu,i,mu,j #GETLINE: Fragment_ij_aoa_o_
+      where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwAO_frag[(index)mu] == ifrag
+      where (int)SwOccA_frag[(index)j] == jfrag
 
 		 GET                 Vxxqq_x[mu,nu,i,j] 
 
@@ -909,16 +418,15 @@ import "trans_frag_defs.sialx"
 		       txpqq[mu,i1,i,j]      = Vxxqq_x[mu,nu,i,j]*ca[nu,i1] 
 		       PUT Vxiij[mu,i1,i,j] += txpqq[mu,i1,i,j] 
 		 ENDDO i1  
-	  ENDDO mu 
 
-      ENDDO j 
-      ENDDO i 
-      ENDDO nu 
-
-      ENDPARDO ifrag, jfrag 
+      ENDPARDO ifrag, jfrag,nu,i,mu,j
 
       print "Done third stage of two-electron integral transformation" 
       sip_barrier 
+
+# ---------------------------------------------------------------------------- 
+#     Fourth stage --> form Vaibj (1122) 
+# ---------------------------------------------------------------------------- 
 
       PARDO ifrag, jfrag, mu, i, b, j #GETLINE: Fragment_ij_ao_vo_
       where (int)elst_dist[ifrag,jfrag] == ifrag
@@ -926,12 +434,6 @@ import "trans_frag_defs.sialx"
       where (int)SwOccA_frag[(index)i] == ifrag
       where (int)SwVirtA_frag[(index)b] == jfrag
       where (int)SwOccA_frag[(index)j] == jfrag
-
-#
-# ---------------------------------------------------------------------------- 
-#     Fourth stage --> form Vaibj (1122) 
-# ---------------------------------------------------------------------------- 
-#
 
 	  GET               Vxpbq[mu,i,b,j] 
 
@@ -946,19 +448,15 @@ import "trans_frag_defs.sialx"
 # ---------------------------------------------------------------------------- 
 #     Fourth stage --> form Viabj (1122) 
 # ---------------------------------------------------------------------------- 
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, nu, i, b, j  #GETLINE: Fragment_ij_ao_vo_
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwVirtA_frag[(index)b] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
         icount = (scalar)ifrag
         jcount = (scalar)jfrag
 #
-      DO i 
-      where (int)SwOccA_frag[(index)i] == ifrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO b 
-      where (int)SwVirtA_frag[(index)b] == jfrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
 
 	  GET               Vixbj[i,nu,b,j]  
 
@@ -968,24 +466,16 @@ import "trans_frag_defs.sialx"
 		PUT Viabj[i,a,b,j] += tppqq[i,a,b,j] 
 	  ENDDO a 
 
-      ENDDO j 
-      ENDDO b 
-      ENDDO nu 
-      ENDDO i 
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag,jfrag, nu, i, b, j
 
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, nu, a, j, j1 #GETLINE: Fragment_ij_av_oo_
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwVirtA_frag[(index)a] == ifrag
+      where (int)SwOccA_frag[(index)j1] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
         icount = (scalar)ifrag
         jcount = (scalar)jfrag
-      DO a 
-      where (int)SwVirtA_frag[(index)a] == ifrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO j1 
-      where (int)SwOccA_frag[(index)j1] == jfrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
 
 	  GET                Vaxjj[a,nu,j1,j] 
 
@@ -995,28 +485,20 @@ import "trans_frag_defs.sialx"
 		PUT Vaajj[a,a1,j1,j] += tppqq[a,a1,j1,j] 
 	  ENDDO a1 
 
-      ENDDO j 
-      ENDDO j1 
-      ENDDO nu 
-      ENDDO a 
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag,jfrag, nu, a, j, j1
 
 # ---------------------------------------------------------------------------- 
 #     Fourth stage --> form Viijj (1122) 
 # ---------------------------------------------------------------------------- 
 #
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, nu, i, j, j1  #GETLINE: Fragment_ij_ao_oo
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)nu] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwOccA_frag[(index)j] == jfrag
+      where (int)SwOccA_frag[(index)j1] == jfrag
         icount = (scalar)ifrag
         jcount = (scalar)jfrag
-      DO i 
-      where (int)SwOccA_frag[(index)i] == ifrag
-      DO nu 
-      where (int)SwAO_frag[(index)nu] == ifrag
-      DO j1 
-      where (int)SwOccA_frag[(index)j1] == jfrag
-      DO j 
-      where (int)SwOccA_frag[(index)j] == jfrag
 
 	  GET                Vixjj[i,nu,j1,j] 
 
@@ -1026,51 +508,45 @@ import "trans_frag_defs.sialx"
 		PUT Viijj[i,i1,j1,j] += tppqq[i,i1,j1,j] 
 	  ENDDO i1 
 
-      ENDDO j 
-      ENDDO j1 
-      ENDDO nu 
-      ENDDO i 
-      ENDPARDO ifrag,jfrag
+      ENDPARDO ifrag, jfrag, nu, i, j, j1
 
-      PARDO ifrag, jfrag 
+      PARDO ifrag, jfrag, i, i1, mu, j  #GETLINE: Fragment_ij_oo_ao
       where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwOccA_frag[(index)i] == ifrag
+      where (int)SwOccA_frag[(index)i1] == ifrag
+      where (int)SwAO_frag[(index)mu] == jfrag
+      where (int)SwOccA_frag[(index)j] == jfrag
         icount = (scalar)ifrag
         jcount = (scalar)jfrag
-      DO i1  
-      where (int)SwOccA_frag[(index)i1] == ifrag
-      DO i 
+
+	 GET                 Vxiij[mu,i1,i,j] 
+
+	 DO j1 
+	 where (int)SwOccA_frag[(index)j1] == jfrag
+	       tppqq[j1,i1,i,j]      = Vxiij[mu,i1,i,j]*ca[mu,j1] 
+	       PUT Vjiij[j1,i1,i,j] += tppqq[j1,i1,i,j] 
+	 ENDDO j1  
+
+      ENDPARDO ifrag, jfrag, i, i1, mu, j
+
+      PARDO ifrag, jfrag, mu, i, i1, j #GETLINE: Fragment_ij_aoo_o
+      where (int)elst_dist[ifrag,jfrag] == ifrag
+      where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
-      DO j 
+      where (int)SwOccA_frag[(index)i1] == ifrag
       where (int)SwOccA_frag[(index)j] == jfrag
-	  DO mu 
-	  where (int)SwAO_frag[(index)mu] == jfrag
+        icount = (scalar)ifrag
+        jcount = (scalar)jfrag
 
-	     GET                 Vxiij[mu,i1,i,j] 
+	 GET                 Vxiij[mu,i1,i,j] 
 
-	     DO j1 
-	     where (int)SwOccA_frag[(index)j1] == jfrag
-		   tppqq[j1,i1,i,j]      = Vxiij[mu,i1,i,j]*ca[mu,j1] 
-		   PUT Vjiij[j1,i1,i,j] += tppqq[j1,i1,i,j] 
-	     ENDDO j1  
-	  ENDDO mu 
+	 DO j1 
+	 where (int)SwOccA_frag[(index)j1] == ifrag
+	       tppqq[j1,i1,i,j]      = Vxiij[mu,i1,i,j]*ca[mu,j1] 
+	       PUT Viiij[j1,i1,i,j] += tppqq[j1,i1,i,j] 
+	 ENDDO j1  
 
-	  DO mu 
-	  where (int)SwAO_frag[(index)mu] == ifrag
-
-	     GET                 Vxiij[mu,i1,i,j] 
-
-	     DO j1 
-	     where (int)SwOccA_frag[(index)j1] == ifrag
-		   tppqq[j1,i1,i,j]      = Vxiij[mu,i1,i,j]*ca[mu,j1] 
-		   PUT Viiij[j1,i1,i,j] += tppqq[j1,i1,i,j] 
-	     ENDDO j1  
-
-	  ENDDO mu 
-
-      ENDDO j 
-      ENDDO i 
-      ENDDO i1  
-      ENDPARDO ifrag, jfrag 
+      ENDPARDO ifrag, jfrag, mu, i, i1, j
       
       print "Done fourth stage of transformation" 
 
@@ -3809,6 +3285,116 @@ import "trans_frag_defs.sialx"
 # -----------------------------------------------------------------------------
 # 
       ENDPROC FORM_T2_MONOMER  
+#
+# ----------------------------------------------------------------------------
+
+      PROC SET_FRAG_PARMS    
+#     ------------------- 
+#
+#     Determine the number of fragments  
+#     --------------------------------- 
+      execute set_frag n_frags
+     #print_scalar nfrags
+      allocate wAO_frag[*] 
+      allocate wOccA_frag[*] 
+      allocate wOccB_frag[*] 
+      allocate wVirtA_frag[*] 
+      allocate wVirtB_frag[*] 
+
+      #allocate SwAO_frag[*] 
+      #allocate SwOccA_frag[*] 
+      #allocate SwOccB_frag[*] 
+      #allocate SwVirtA_frag[*] 
+      #allocate SwVirtB_frag[*] 
+
+      #allocate elst_dist[*,*]
+      #allocate rcut_dist[*,*]
+
+      do kfrag
+      do jfrag
+	  where jfrag <= kfrag
+	  icount = (scalar)kfrag
+	  jcount = (scalar)jfrag
+
+          execute return_pairs icount jcount elst_thresh pair_flag 
+	  elst_dist[kfrag,jfrag] = 0.0
+	  elst_dist[jfrag,kfrag] = 0.0
+
+          if pair_flag > zero
+	  elst_dist[kfrag,jfrag] = (scalar)kfrag
+	  elst_dist[jfrag,kfrag] = (scalar)jfrag
+	  endif
+
+          execute return_pairs icount jcount r_thresh pair_flag 
+	  rcut_dist[kfrag,jfrag] = 0.0
+	  rcut_dist[jfrag,kfrag] = 0.0
+
+          if pair_flag > zero
+	  rcut_dist[kfrag,jfrag] = (scalar)kfrag
+	  rcut_dist[jfrag,kfrag] = (scalar)jfrag
+	  endif
+
+      enddo jfrag
+      enddo kfrag
+
+      do jfrag
+#
+	  icount = (scalar)jfrag
+          i_aostart = icount
+          i_aoend   = 1.0
+          execute frag_index_range i_aostart i_aoend
+         i_vstart  = icount
+         i_vend    = 6.0
+         execute frag_index_range i_vstart i_vend
+         a_vstart  = icount
+         a_vend    = 7.0
+         execute frag_index_range a_vstart a_vend
+
+          m = 0.0
+          do mu
+              m += 1.0
+              if m >= i_aostart
+              if m <= i_aoend
+              SwAO_frag[(index)mu] = (scalar)jfrag
+              wAO_frag[mu] = (scalar)jfrag
+              endif
+              endif
+          enddo mu
+         DO i
+            m = 0.0
+            do i1
+               m += 1.0
+               if i == i1
+                  exit
+               endif
+            enddo i1
+	    print i
+            if m >= i_vstart
+            if m <= i_vend
+               SwOccA_frag[(index)i] = (scalar)jfrag
+               wOccA_frag[i] = (scalar)jfrag
+            endif
+            endif
+         ENDDO i
+         DO a
+            m = 0.0
+            do a1
+               m += 1.0
+               if a == a1
+                  exit
+               endif
+            enddo a1
+            if m >= a_vstart
+            if m <= a_vend
+               SwVirtA_frag[(index)a] = (scalar)jfrag
+               wVirtA_frag[a] = (scalar)jfrag
+            endif
+            endif
+         ENDDO a
+      enddo jfrag
+
+      sip_barrier
+      ENDPROC SET_FRAG_PARMS    
 #
 # -----------------------------------------------------------------------------
 # 

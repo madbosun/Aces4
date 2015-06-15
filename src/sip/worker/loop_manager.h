@@ -219,7 +219,7 @@ private:
     bool initialize_indices();
     bool increment_simple_pair();
     bool increment_single_index(int index);
-    bool increment_special();
+    bool increment_all();
     
     //double return_val_rcut_dist(int index1, int index2);
     //double return_val_elst_dist(int index1, int index2);
@@ -276,7 +276,7 @@ private:
     bool initialize_indices();
 	bool increment_simple_pair();
     bool increment_single_index(int index);
-    bool increment_special();
+    bool increment_all();
 
     //double return_val_rcut_dist(int index1, int index2);
 	//double return_val_elst_dist(int index1, int index2);
@@ -300,6 +300,588 @@ private:
     std::vector<int> swvirta_frag;
     
 };
+    
+    class Fragment_i_aaaaa__PardoLoopManager: public LoopManager{
+    public:
+        Fragment_i_aaaaa__PardoLoopManager(int num_indices,
+                                           const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+                                           const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+                                           int num_where_clauses, Interpreter* interpreter, long& iteration);
+        virtual ~Fragment_i_aaaaa__PardoLoopManager();
+        friend std::ostream& operator<<(std::ostream&,
+                                        const Fragment_i_aaaaa__PardoLoopManager &);
+    private:
+        virtual std::string to_string() const;
+        virtual bool do_update();
+        virtual void do_finalize();
+        bool first_time_;
+        int num_indices_;
+        long& iteration_;
+        index_selector_t index_id_;
+        index_value_array_t lower_seg_;
+        index_value_array_t upper_bound_;
+        int num_where_clauses_;
+        
+        DataManager & data_manager_;
+        const SipTables & sip_tables_;
+        SIPMPIAttr & sip_mpi_attr_;
+        int company_rank_;
+        int num_workers_;
+        Interpreter* interpreter_;
+        
+        int index_values_[MAX_RANK];
+        
+        bool initialize_indices();
+        bool increment_simple_pair();
+        bool increment_single_index(int index);
+        bool increment_all();
+        
+        //double return_val_rcut_dist(int index1, int index2);
+        //double return_val_elst_dist(int index1, int index2);
+        //double return_val_swao_frag(int index1);
+        //double return_val_swocca_frag(int index1);
+        //double return_val_swvirta_frag(int index1);
+        
+        void form_rcut_dist();
+        void form_elst_dist();
+        void form_swao_frag();
+        void form_swocca_frag();
+        void form_swvirta_frag();
+        
+        bool fragment_special_where_clause(int typ, int index, int frag);
+        bool where_clause(int index);
+        
+        std::vector< std::vector<int> > elst_dist;
+        std::vector< std::vector<int> > rcut_dist;
+        std::vector<int> swao_frag;
+        std::vector<int> swocca_frag;
+        std::vector<int> swvirta_frag;
+        
+    };
+
+class Fragment_ij_aaaa__PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_aaaa__PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_aaaa__PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_aaaa__PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_aa_aa_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_aa_aa_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_aa_aa_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_aa_aa_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_ao_ao_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_ao_ao_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_ao_ao_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_ao_ao_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_aa_oo_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_aa_oo_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_aa_oo_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_aa_oo_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_aoa_o_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_aoa_o_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_aoa_o_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_aoa_o_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_av_oo_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_av_oo_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_av_oo_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_av_oo_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_ao_oo_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_ao_oo_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_ao_oo_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_ao_oo_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_oo_ao_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_oo_ao_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_oo_ao_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_oo_ao_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+
+class Fragment_ij_aoo_o_PardoLoopManager: public LoopManager{
+public:
+	Fragment_ij_aoo_o_PardoLoopManager(int num_indices,
+			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
+			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
+			int num_where_clauses, Interpreter* interpreter, long& iteration);
+	virtual ~Fragment_ij_aoo_o_PardoLoopManager();
+	friend std::ostream& operator<<(std::ostream&,
+				const Fragment_ij_aoo_o_PardoLoopManager &);
+private:
+	virtual std::string to_string() const;
+	virtual bool do_update();
+	virtual void do_finalize();
+	bool first_time_;
+	int num_indices_;
+	long& iteration_;
+	index_selector_t index_id_;
+	index_value_array_t lower_seg_;
+	index_value_array_t upper_bound_;
+	int num_where_clauses_;
+
+	DataManager & data_manager_;
+	const SipTables & sip_tables_;
+	SIPMPIAttr & sip_mpi_attr_;
+	int company_rank_;
+	int num_workers_;
+	Interpreter* interpreter_;
+
+	int index_values_[MAX_RANK];
+
+    bool initialize_indices();
+	bool increment_simple_pair();
+    bool increment_single_index(int index);
+    bool increment_all();
+
+    //double return_val_rcut_dist(int index1, int index2);
+	//double return_val_elst_dist(int index1, int index2);
+	//double return_val_swao_frag(int index1);
+	//double return_val_swocca_frag(int index1);
+	//double return_val_swvirta_frag(int index1);
+    
+    void form_rcut_dist();
+    void form_elst_dist();
+    void form_swao_frag();
+    void form_swocca_frag();
+    void form_swvirta_frag();
+    
+    bool fragment_special_where_clause(int typ, int index, int frag);
+    bool where_clause(int index);
+    
+    std::vector< std::vector<int> > elst_dist;
+    std::vector< std::vector<int> > rcut_dist;
+    std::vector<int> swao_frag;
+    std::vector<int> swocca_frag;
+    std::vector<int> swvirta_frag;
+    
+};
+    
+
 
 #endif
 

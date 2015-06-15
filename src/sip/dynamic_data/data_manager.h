@@ -27,8 +27,6 @@ class TestController;
 namespace sip {
 class SialOpsParallel;
 class SialOpsSequential;
-class Fragment_ij_aa__PardoLoopManager;
-class Fragment_ij_ao_vo_PardoLoopManager;
 class Interpreter;
 
 class DataManager {
@@ -93,6 +91,8 @@ public:
 	//immutable data for convenience
 	const BlockManager& block_manager() const { return block_manager_; }	// For printing
 
+	ContiguousArrayManager& contiguous_array_manager() { return contiguous_array_manager_; }
+
 private:
 
 
@@ -112,8 +112,6 @@ private:
 	friend class Interpreter;
 	friend class SialOpsParallel;
 	friend class SialOpsSequential;
-        friend class Fragment_ij_aa__PardoLoopManager;
-        friend class Fragment_ij_ao_vo_PardoLoopManager;
 	friend class ::TestControllerParallel;
 	friend class ::TestController;
 
