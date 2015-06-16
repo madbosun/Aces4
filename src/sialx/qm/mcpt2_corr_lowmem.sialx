@@ -107,48 +107,48 @@ import "mcpt2_vars.sialx"
       sip_barrier
       print "Done initial formation of wC(AO)"
 
-      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
+      PARDO ifrag, mu, nu, a, i #GETLINE: Fragment_i_aavo__
 	 where (int)SwAO_frag[(index)mu] == ifrag
          where (int)SwAO_frag[(index)nu] == ifrag
+	 where (int)SwVirtA_frag[(index)a] == ifrag
+	 where (int)SwOccA_frag[(index)i] == ifrag
 
              GET             wC_ao[mu,nu]
-   
-	     DO a
-	     where (int)SwVirtA_frag[(index)a] == ifrag
-		 DO i
-		 where (int)SwOccA_frag[(index)i] == ifrag
 		     txp[mu,i]     = wC_ao[mu,nu]*ca[nu,i]
 		     tpp[a,i]     = txp[mu,i]*ca[mu,a]
 		     PUT wC[a,i] += tpp[a,i]
 		     t1pp[i,a]    = tpp[a,i]
 		     PUT wC[i,a] += t1pp[i,a]
-		 ENDDO i
-	      ENDDO a
-       
-	      DO a
-	      where (int)SwVirtA_frag[(index)a] == ifrag
-		  DO a1
-		  where (int)SwVirtA_frag[(index)a1] == ifrag
+
+      ENDPARDO ifrag, mu, nu, a, i
+
+      PARDO ifrag, mu, nu, a, a1 #GETLINE: Fragment_i_aavv__
+	 where (int)SwAO_frag[(index)mu] == ifrag
+         where (int)SwAO_frag[(index)nu] == ifrag
+	 where (int)SwVirtA_frag[(index)a] == ifrag
+	 where (int)SwVirtA_frag[(index)a1] == ifrag
+
+             GET             wC_ao[mu,nu]
 		      txp[mu,a1] = wC_ao[mu,nu]*ca[nu,a1]
 		      tpp[a,a1]  = txp[mu,a1]*ca[mu,a]
 		      t1pp[a,a1] = tpp[a,a1]
 		      PUT wC[a,a1] += tpp[a,a1]
-		  ENDDO a1
-	      ENDDO a
+
+      ENDPARDO ifrag, mu, nu, a, a1
        
-       
-	      DO i1
-	      where (int)SwOccA_frag[(index)i1] == ifrag
-		  DO i
-		  where (int)SwOccA_frag[(index)i] == ifrag
+      PARDO ifrag, mu, nu, i, i1 #GETLINE: Fragment_i_aaoo__
+	 where (int)SwAO_frag[(index)mu] == ifrag
+         where (int)SwAO_frag[(index)nu] == ifrag
+	 where (int)SwOccA_frag[(index)i] == ifrag
+	 where (int)SwOccA_frag[(index)i1] == ifrag
+
+             GET             wC_ao[mu,nu]
 		      txp[mu,i] = wC_ao[mu,nu]*ca[nu,i]
 		      tpp[i1,i]  = txp[mu,i]*ca[mu,i1]
 		      t1pp[i1,i] = tpp[i1,i]
 		      PUT wC[i1,i] += tpp[i1,i]
-		  ENDDO i
-	      ENDDO i1
 
-      ENDPARDO ifrag, mu, nu
+      ENDPARDO ifrag, mu, nu, i, i1
 
       sip_barrier 
 
