@@ -177,7 +177,7 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 				switch (line){
 				    case 16:
 				    case 110:
-					loop = new Fragment_i_aaaaa__PardoLoopManager(
+					loop = new Fragment_i_aa__PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;
@@ -188,12 +188,12 @@ void Interpreter::interpret(int pc_start, int pc_end) {
 					break;
 				case 161:
 				case 221:
-					loop = new Fragment_ij_aa_aa_PardoLoopManager(
+					loop = new Fragment_ij_aa_a_PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;
 				case 266:
-					loop = new Fragment_ij_aaaa__PardoLoopManager(
+					loop = new Fragment_ij_aaa__PardoLoopManager(
 						num_indices, index_selectors(), data_manager_, sip_tables_,
 							SIPMPIAttr::get_instance(), num_where_clauses, this, iteration_);
 					break;

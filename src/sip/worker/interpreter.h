@@ -481,9 +481,9 @@ private:
 	friend class ::TestController;
 	friend class BalancedTaskAllocParallelPardoLoop; //for interpret_where
 	friend class Fragment_ij_aa__PardoLoopManager;
-	friend class Fragment_i_aaaaa__PardoLoopManager;
-	friend class Fragment_ij_aaaa__PardoLoopManager;
-	friend class Fragment_ij_aa_aa_PardoLoopManager;
+	friend class Fragment_i_aa__PardoLoopManager;
+	friend class Fragment_ij_aaa__PardoLoopManager;
+	friend class Fragment_ij_aa_a_PardoLoopManager;
 	friend class Fragment_ij_ao_ao_PardoLoopManager;
 	friend class Fragment_ij_aa_oo_PardoLoopManager;
 	friend class Fragment_ij_aoa_o_PardoLoopManager;

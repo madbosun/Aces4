@@ -301,15 +301,15 @@ private:
     
 };
     
-    class Fragment_i_aaaaa__PardoLoopManager: public LoopManager{
+    class Fragment_i_aa__PardoLoopManager: public LoopManager{
     public:
-        Fragment_i_aaaaa__PardoLoopManager(int num_indices,
+        Fragment_i_aa__PardoLoopManager(int num_indices,
                                            const int (&index_ids)[MAX_RANK], DataManager & data_manager,
                                            const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
                                            int num_where_clauses, Interpreter* interpreter, long& iteration);
-        virtual ~Fragment_i_aaaaa__PardoLoopManager();
+        virtual ~Fragment_i_aa__PardoLoopManager();
         friend std::ostream& operator<<(std::ostream&,
-                                        const Fragment_i_aaaaa__PardoLoopManager &);
+                                        const Fragment_i_aa__PardoLoopManager &);
     private:
         virtual std::string to_string() const;
         virtual bool do_update();
@@ -359,15 +359,15 @@ private:
         
     };
 
-class Fragment_ij_aaaa__PardoLoopManager: public LoopManager{
+class Fragment_ij_aaa__PardoLoopManager: public LoopManager{
 public:
-	Fragment_ij_aaaa__PardoLoopManager(int num_indices,
+	Fragment_ij_aaa__PardoLoopManager(int num_indices,
 			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
 			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
 			int num_where_clauses, Interpreter* interpreter, long& iteration);
-	virtual ~Fragment_ij_aaaa__PardoLoopManager();
+	virtual ~Fragment_ij_aaa__PardoLoopManager();
 	friend std::ostream& operator<<(std::ostream&,
-				const Fragment_ij_aaaa__PardoLoopManager &);
+				const Fragment_ij_aaa__PardoLoopManager &);
 private:
 	virtual std::string to_string() const;
 	virtual bool do_update();
@@ -417,15 +417,15 @@ private:
     
 };
 
-class Fragment_ij_aa_aa_PardoLoopManager: public LoopManager{
+class Fragment_ij_aa_a_PardoLoopManager: public LoopManager{
 public:
-	Fragment_ij_aa_aa_PardoLoopManager(int num_indices,
+	Fragment_ij_aa_a_PardoLoopManager(int num_indices,
 			const int (&index_ids)[MAX_RANK], DataManager & data_manager,
 			const SipTables & sip_tables, SIPMPIAttr& sip_mpi_attr,
 			int num_where_clauses, Interpreter* interpreter, long& iteration);
-	virtual ~Fragment_ij_aa_aa_PardoLoopManager();
+	virtual ~Fragment_ij_aa_a_PardoLoopManager();
 	friend std::ostream& operator<<(std::ostream&,
-				const Fragment_ij_aa_aa_PardoLoopManager &);
+				const Fragment_ij_aa_a_PardoLoopManager &);
 private:
 	virtual std::string to_string() const;
 	virtual bool do_update();

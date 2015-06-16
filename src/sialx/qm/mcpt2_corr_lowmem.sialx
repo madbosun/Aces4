@@ -13,7 +13,7 @@ import "mcpt2_vars.sialx"
 # ----------------------------------------------------------------------------
 #     zero wC_ao
 # ----------------------------------------------------------------------------
-      PARDO kfrag,mu,nu #GETLINE: Fragment_i_aaaaa__
+      PARDO kfrag,mu,nu #GETLINE: Fragment_i_aa__
       where (int)SwAO_frag[(index)mu] == kfrag
       where (int)SwAO_frag[(index)nu] == kfrag
 
@@ -107,7 +107,7 @@ import "mcpt2_vars.sialx"
       sip_barrier
       print "Done initial formation of wC(AO)"
 
-      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aaaaa__
+      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
 	 where (int)SwAO_frag[(index)mu] == ifrag
          where (int)SwAO_frag[(index)nu] == ifrag
 
@@ -158,7 +158,7 @@ import "mcpt2_vars.sialx"
 #     First stage --> form Vxxxj (1122) 
 # ---------------------------------------------------------------------------- 
 
-      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aa_aa_
+      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aa_a_
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
@@ -218,7 +218,7 @@ import "mcpt2_vars.sialx"
 
 # Exchange integrals 
 
-      PARDO ifrag, jfrag, nu, lambda, mu #GETLINE: Fragment_ij_aa_aa_
+      PARDO ifrag, jfrag, nu, lambda, mu #GETLINE: Fragment_ij_aa_a_
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwAO_frag[(index)lambda] == ifrag
@@ -263,7 +263,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag, jfrag, nu, lambda, mu
 #
-      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aaaa__
+      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aaa__
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
