@@ -213,13 +213,17 @@ do ifrag
 where ifrag == 1
 
     pardo fmu, fi
-    print  ca[fmu,fi]
-       put Fca_o[fmu,fi] = ca[fmu,fi]
+       get Dca[fmu,fi]
+       print Dca[fmu,fi]
+       Txp[fmu,fi] = Dca[fmu,fi]
+       put Fca_o[fmu,fi] = Txp[fmu,fi]
     endpardo fmu, fi
 
     pardo fmu, fa
-    print ca[fmu,fa]
-       put Fca_v[fmu,fa] = ca[fmu,fa]
+       get Dca[fmu,fa]
+	print Dca[fmu,fa]
+       Txp[fmu,fa] = Dca[fmu,fa]
+       put Fca_v[fmu,fa] = Txp[fmu,fa]
     endpardo fmu, fa
 
     pardo fi, fi1
