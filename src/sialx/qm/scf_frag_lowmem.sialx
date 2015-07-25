@@ -208,8 +208,44 @@ import "mcpt2_vars.sialx"
       call IGUESS
       sip_barrier 
 
-      set_persistent Dca "ca" 
-      set_persistent DFock_a "fock_a"
+server_barrier
+do ifrag
+where ifrag == 1
+
+    pardo fmu, fi
+    print  ca[fmu,fi]
+       put Fca_o[fmu,fi] = ca[fmu,fi]
+    endpardo fmu, fi
+
+    pardo fmu, fa
+    print ca[fmu,fa]
+       put Fca_v[fmu,fa] = ca[fmu,fa]
+    endpardo fmu, fa
+
+    pardo fi, fi1
+        get Dfock_a[fi,fi1]
+	Tpp[fi,fi1] = Dfock_a[fi,fi1]
+	print Tpp[fi,fi1]
+        put FFock_oo[fi,fi1] = Tpp[fi,fi1]
+    endpardo fi, fi1
+
+    pardo fa, fa1
+        get Dfock_a[fa,fa1]
+	Tpp[fa,fa1] = Dfock_a[fa,fa1]
+	print Tpp[fa,fa1]
+        put FFock_vv[fa,fa1] = Tpp[fa,fa1]
+    endpardo fa, fa1
+
+enddo ifrag
+
+set_persistent Fca_o "MOI_Ca_o"
+set_persistent Fca_v "MOI_Ca_v"
+set_persistent FFock_oo "MOI_Fock_oo"
+set_persistent FFock_vv "MOI_Fock_vv"
+
+server_barrier
+#      set_persistent Dca "ca" 
+#      set_persistent DFock_a "fock_a"
 
 # -----------------------------------------------------------------------------
 #

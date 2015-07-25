@@ -3614,6 +3614,7 @@ ENDPROC FORM_JFRAG_HBAR
       sip_barrier 
 
     PARDO katom  
+    where katom > 1
 	icount = (scalar)katom
 
 #	print icount # etemp 
@@ -3685,6 +3686,42 @@ ENDPROC FORM_JFRAG_HBAR
       deallocate contiguous scr_4[1:max_aoseg,1:max_aoseg]
       deallocate contiguous scr_5[1:max_aoseg,1:max_aoseg]
       sip_barrier 
+
+restore_persistent Fca_o "MOI_Ca_o"
+restore_persistent Fca_v "MOI_Ca_v"
+restore_persistent FFock_oo "MOI_Fock_oo"
+restore_persistent FFock_vv "MOI_Fock_vv"
+server_barrier
+do ifrag
+where ifrag == 1
+
+    pardo fmu, fi
+       get Fca_o[fmu,fi]
+       print  Fca_o[fmu,fi]
+       put Dca[fmu,fi] = Fca_o[fmu,fi]
+    endpardo fmu, fi
+
+    pardo fmu, fa
+       get Fca_v[fmu,fa] 
+       print Fca_v[fmu,fa]
+       put Dca[fmu,fa] = Fca_v[fmu,fa]
+    endpardo fmu, fa
+
+    pardo fi, fi1
+        get FFock_oo[fi,fi1] 
+	print FFock_oo[fi,fi1]
+        put Dfock_a[fi,fi1] = FFock_oo[fi,fi1]
+    endpardo fi, fi1
+
+    pardo fa, fa1
+        get FFock_vv[fa,fa1] 
+	print FFock_vv[fa,fa1]
+        put Dfock_a[fa,fa1] = FFock_vv[fa,fa1]
+    endpardo fa, fa1
+
+enddo ifrag
+
+server_barrier
 
       print "Placing HF coefficients on nodes"
       DO p 
