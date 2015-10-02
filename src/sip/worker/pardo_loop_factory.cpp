@@ -16,7 +16,8 @@ namespace sip {
 
 
 #ifdef HAVE_MPI
-const PardoLoopFactory::Loop_t PardoLoopFactory::default_loop = PardoLoopFactory::StaticTaskAllocParallelPardoLoop;
+//const PardoLoopFactory::Loop_t PardoLoopFactory::default_loop = PardoLoopFactory::StaticTaskAllocParallelPardoLoop;
+const PardoLoopFactory::Loop_t PardoLoopFactory::default_loop = PardoLoopFactory::BalancedTaskAllocParallelPardoLoop;
 const PardoLoopFactory::Loop_t PardoLoopFactory::test_loop = PardoLoopFactory::TestStaticTaskAllocParallelPardoLoop;
 #else
 //const PardoLoopFactory::Loop_t PardoLoopFactory::default_loop = PardoLoopFactory::SequentialPardoLoop;
@@ -33,39 +34,39 @@ std::map<std::string, enum PardoLoopFactory::Loop_t> PardoLoopFactory::pardo_var
 #ifdef HAVE_MPI
 ("StaticTaskAllocParallelPardoLoop",PardoLoopFactory::StaticTaskAllocParallelPardoLoop)
 ("BalancedTaskAllocParallelPardoLoop",PardoLoopFactory::BalancedTaskAllocParallelPardoLoop)
-("Fragment_i_aa__PardoLoopManager", PardoLoopFactory::Fragment_i_aa__PardoLoopManager)
-("Fragment_Nij_aa__PardoLoopManager", PardoLoopFactory::Fragment_Nij_aa__PardoLoopManager)
-("Fragment_Nij_a_a_PardoLoopManager", PardoLoopFactory::Fragment_Nij_a_a_PardoLoopManager)
-("Fragment_ij_aa_a_PardoLoopManager", PardoLoopFactory::Fragment_ij_aa_a_PardoLoopManager)
-("Fragment_ij_aaa__PardoLoopManager", PardoLoopFactory::Fragment_ij_aaa__PardoLoopManager)
-("Fragment_ij_ao_ao_PardoLoopManager",PardoLoopFactory::Fragment_ij_ao_ao_PardoLoopManager)
-("Fragment_ij_aa_oo_PardoLoopManager",PardoLoopFactory::Fragment_ij_aa_oo_PardoLoopManager)
-("Fragment_ij_aa_vo_PardoLoopManager",PardoLoopFactory::Fragment_ij_aa_vo_PardoLoopManager)
-("Fragment_ij_aoa_o_PardoLoopManager",PardoLoopFactory::Fragment_ij_aoa_o_PardoLoopManager)
-("Fragment_ij_ao_vo_PardoLoopManager",PardoLoopFactory::Fragment_ij_ao_vo_PardoLoopManager)
-("Fragment_ij_av_oo_PardoLoopManager",PardoLoopFactory::Fragment_ij_av_oo_PardoLoopManager)
-("Fragment_ij_av_vo_PardoLoopManager",PardoLoopFactory::Fragment_ij_av_vo_PardoLoopManager)
-("Fragment_ij_ao_oo_PardoLoopManager",PardoLoopFactory::Fragment_ij_ao_oo_PardoLoopManager)
-("Fragment_ij_oo_ao_PardoLoopManager",PardoLoopFactory::Fragment_ij_oo_ao_PardoLoopManager)
-("Fragment_ij_aoo_o_PardoLoopManager",PardoLoopFactory::Fragment_ij_aoo_o_PardoLoopManager)
-("Fragment_ij_vo_vo_PardoLoopManager",PardoLoopFactory::Fragment_ij_vo_vo_PardoLoopManager)
-("Fragment_i_vo__PardoLoopManager",PardoLoopFactory::Fragment_i_vo__PardoLoopManager)
-("Fragment_i_vovo__PardoLoopManager",PardoLoopFactory::Fragment_i_vovo__PardoLoopManager)
-("Fragment_i_aaoo__PardoLoopManager",PardoLoopFactory::Fragment_i_aaoo__PardoLoopManager)
-("Fragment_i_aovo__PardoLoopManager",PardoLoopFactory::Fragment_i_aovo__PardoLoopManager)
-("Fragment_i_aaaa__PardoLoopManager",PardoLoopFactory::Fragment_i_aaaa__PardoLoopManager)
-("Fragment_i_aoo__PardoLoopManager",PardoLoopFactory::Fragment_i_aoo__PardoLoopManager)
-("Fragment_Nij_vo_vo_PardoLoopManager",PardoLoopFactory::Fragment_Nij_vo_vo_PardoLoopManager)
-("Fragment_NRij_vo_vo_PardoLoopManager",PardoLoopFactory::Fragment_NRij_vo_vo_PardoLoopManager)
-("Fragment_NRij_ao_ao_PardoLoopManager",PardoLoopFactory::Fragment_NRij_ao_ao_PardoLoopManager)
-("Fragment_NRij_vo_ao_PardoLoopManager",PardoLoopFactory::Fragment_NRij_vo_ao_PardoLoopManager)
-("Fragment_NRij_aa_aa_PardoLoopManager",PardoLoopFactory::Fragment_NRij_aa_aa_PardoLoopManager)
-("Fragment_NRij_vv_oo_PardoLoopManager",PardoLoopFactory::Fragment_NRij_vv_oo_PardoLoopManager)
-("Fragment_NRij_o_ao_PardoLoopManager",PardoLoopFactory::Fragment_NRij_o_ao_PardoLoopManager)
-("Fragment_Rij_vo_vo_PardoLoopManager",PardoLoopFactory::Fragment_Rij_vo_vo_PardoLoopManager)
-("Fragment_NR1ij_vo_vo_PardoLoopManager",PardoLoopFactory::Fragment_NR1ij_vo_vo_PardoLoopManager)
-("Fragment_NR1ij_oo_vo_PardoLoopManager",PardoLoopFactory::Fragment_NR1ij_oo_vo_PardoLoopManager)
-("Fragment_NR1ij_vv_vo_PardoLoopManager",PardoLoopFactory::Fragment_NR1ij_vv_vo_PardoLoopManager);
+("Frag{i}{aa}{}", PardoLoopFactory::Fragment_i_aa__PardoLoopManager)
+("Frag{Nij}{aa}{}", PardoLoopFactory::Fragment_Nij_aa__PardoLoopManager)
+("Frag{Nij}{a}{a}", PardoLoopFactory::Fragment_Nij_a_a_PardoLoopManager)
+("Frag{ij}{aa}{a}", PardoLoopFactory::Fragment_ij_aa_a_PardoLoopManager)
+("Frag{ij}{aaa}{}", PardoLoopFactory::Fragment_ij_aaa__PardoLoopManager)
+("Frag{ij}{ao}{ao}",PardoLoopFactory::Fragment_ij_ao_ao_PardoLoopManager)
+("Frag{ij}{aa}{oo}",PardoLoopFactory::Fragment_ij_aa_oo_PardoLoopManager)
+("Frag{ij}{aa}{vo}",PardoLoopFactory::Fragment_ij_aa_vo_PardoLoopManager)
+("Frag{ij}{aoa}{o}",PardoLoopFactory::Fragment_ij_aoa_o_PardoLoopManager)
+("Frag{ij}{ao}{vo}",PardoLoopFactory::Fragment_ij_ao_vo_PardoLoopManager)
+("Frag{ij}{av}{oo}",PardoLoopFactory::Fragment_ij_av_oo_PardoLoopManager)
+("Frag{ij}{av}{vo}",PardoLoopFactory::Fragment_ij_av_vo_PardoLoopManager)
+("Frag{ij}{ao}{oo}",PardoLoopFactory::Fragment_ij_ao_oo_PardoLoopManager)
+("Frag{ij}{oo}{ao}",PardoLoopFactory::Fragment_ij_oo_ao_PardoLoopManager)
+("Frag{ij}{aoo}{o}",PardoLoopFactory::Fragment_ij_aoo_o_PardoLoopManager)
+("Frag{ij}{vo}{vo}",PardoLoopFactory::Fragment_ij_vo_vo_PardoLoopManager)
+("Frag{i}{vo}{}",PardoLoopFactory::Fragment_i_vo__PardoLoopManager)
+("Frag{i}{vovo}{}",PardoLoopFactory::Fragment_i_vovo__PardoLoopManager)
+("Frag{i}{aaoo}{}",PardoLoopFactory::Fragment_i_aaoo__PardoLoopManager)
+("Frag{i}{aovo}{}",PardoLoopFactory::Fragment_i_aovo__PardoLoopManager)
+("Frag{i}{aaaa}{}",PardoLoopFactory::Fragment_i_aaaa__PardoLoopManager)
+("Frag{i}{aoo}{}",PardoLoopFactory::Fragment_i_aoo__PardoLoopManager)
+("Frag{Nij}{vo}{vo}",PardoLoopFactory::Fragment_Nij_vo_vo_PardoLoopManager)
+("Frag{NRij}{vo}{vo}",PardoLoopFactory::Fragment_NRij_vo_vo_PardoLoopManager)
+("Frag{NRij}{ao}{ao}",PardoLoopFactory::Fragment_NRij_ao_ao_PardoLoopManager)
+("Frag{NRij}{vo}{ao}",PardoLoopFactory::Fragment_NRij_vo_ao_PardoLoopManager)
+("Frag{NRij}{aa}{aa}",PardoLoopFactory::Fragment_NRij_aa_aa_PardoLoopManager)
+("Frag{NRij}{vv}{oo}",PardoLoopFactory::Fragment_NRij_vv_oo_PardoLoopManager)
+("Frag{NRij}{o}{ao}",PardoLoopFactory::Fragment_NRij_o_ao_PardoLoopManager)
+("Frag{Rij}{vo}{vo}",PardoLoopFactory::Fragment_Rij_vo_vo_PardoLoopManager)
+("Frag{NR1ij}{vo}{vo}",PardoLoopFactory::Fragment_NR1ij_vo_vo_PardoLoopManager)
+("Frag{NR1ij}{oo}{vo}",PardoLoopFactory::Fragment_NR1ij_oo_vo_PardoLoopManager)
+("Frag{NR1ij}{vv}{vo}",PardoLoopFactory::Fragment_NR1ij_vv_vo_PardoLoopManager);
 #endif
 
 
@@ -88,6 +89,7 @@ std::map<std::string, enum PardoLoopFactory::Loop_t> PardoLoopFactory::pardo_var
 //if single node, and asking for non-existent loop manager, just give default without complaining
 			which_pardo = default_loop;
 		}
+		std::cout << which_pardo << std::endl;
 		switch(which_pardo){
 		case SequentialPardoLoop:
 			return new sip::SequentialPardoLoop(num_indices, index_ids, data_manager, sip_tables);

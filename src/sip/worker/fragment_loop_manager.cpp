@@ -281,6 +281,7 @@ std::string FragmentPardoLoopManager::to_string() const {
 /*!
  -------------------------------------------
  _Nij_aa__
+ Frag{Nij}{aa}{}
  -------------------------------------------
  */
 
@@ -835,7 +836,7 @@ Fragment_ij_ao_vo_PardoLoopManager::~Fragment_ij_ao_vo_PardoLoopManager() {
  _i_aa__
  -------------------------------------------
 
- PARDO ifrag, mu,....#GETLINE: Fragment_i_aa__
+ PARDO ifrag, mu,nu "Frag{i}{aa}{}"
  where (int)SwAO_frag[(index)mu] == ifrag
  .
  .

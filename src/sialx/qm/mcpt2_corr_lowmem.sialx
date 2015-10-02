@@ -13,7 +13,7 @@ import "mcpt2_vars.sialx"
 # ----------------------------------------------------------------------------
 #     zero wC_ao
 # ----------------------------------------------------------------------------
-      PARDO kfrag,mu,nu #GETLINE: Fragment_i_aa__
+      PARDO kfrag,mu,nu "Frag{i}{aa}{}"
       where (int)SwAO_frag[(index)mu] == kfrag
       where (int)SwAO_frag[(index)nu] == kfrag
 
@@ -27,7 +27,7 @@ import "mcpt2_vars.sialx"
 #     Form wC_ao  
 # ---------------------------------------------------------------------------- 
 
-      PARDO ifrag, jfrag, mu, nu #GETLINE: Fragment_Nij_aa__
+      PARDO ifrag, jfrag, mu, nu "Frag{Nij}{aa}{}"
       WHERE jfrag != ifrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
@@ -107,7 +107,7 @@ import "mcpt2_vars.sialx"
       sip_barrier
       print "Done initial formation of wC(AO)"
 
-      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
+      PARDO ifrag, mu, nu "Frag{i}{aa}{}"
 	 where (int)SwAO_frag[(index)mu] == ifrag
          where (int)SwAO_frag[(index)nu] == ifrag
 
@@ -158,7 +158,7 @@ import "mcpt2_vars.sialx"
 #     First stage --> form Vxxxj (1122) 
 # ---------------------------------------------------------------------------- 
 
-      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aa_a_
+      PARDO ifrag, jfrag, mu, nu, lambda "Frag{ij}{aa}{a}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
@@ -218,7 +218,7 @@ import "mcpt2_vars.sialx"
 
 # Exchange integrals 
 
-      PARDO ifrag, jfrag, nu, lambda, mu #GETLINE: Fragment_ij_aa_a_
+      PARDO ifrag, jfrag, nu, lambda, mu "Frag{ij}{aa}{a}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwAO_frag[(index)lambda] == ifrag
@@ -263,7 +263,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag, jfrag, nu, lambda, mu
 #
-      PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aaa__
+      PARDO ifrag, jfrag, mu, nu, lambda "Frag{ij}{aaa}{}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
@@ -319,7 +319,7 @@ import "mcpt2_vars.sialx"
 #     Third stage --> form Vxibj (1122) 
 # ---------------------------------------------------------------------------- 
 
-      PARDO ifrag, jfrag, mu, i, lambda, j #GETLINE: Fragment_ij_ao_ao_
+      PARDO ifrag, jfrag, mu, i, lambda, j "Frag{ij}{ao}{ao}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -342,7 +342,7 @@ import "mcpt2_vars.sialx"
 #     Third stage --> form Vixbj (1122) 
 # ---------------------------------------------------------------------------- 
 #
-      PARDO ifrag, jfrag, nu, i, lambda, j #GETLINE: Fragment_ij_ao_ao_
+      PARDO ifrag, jfrag, nu, i, lambda, j "Frag{ij}{ao}{ao}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -366,7 +366,7 @@ import "mcpt2_vars.sialx"
 	  ENDDO j1  
       ENDPARDO ifrag,jfrag, nu, i, lambda, j
 #
-      PARDO ifrag, jfrag, nu, mu, j, j1 #GETLINE: Fragment_ij_aa_oo_
+      PARDO ifrag, jfrag, nu, mu, j, j1 "Frag{ij}{aa}{oo}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
@@ -385,7 +385,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag,jfrag, nu, mu, j, j1
 #
-      PARDO ifrag, jfrag,nu,i,mu,j #GETLINE: Fragment_ij_ao_ao_
+      PARDO ifrag, jfrag,nu,i,mu,j "Frag{ij}{ao}{ao}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -404,7 +404,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag, jfrag,nu,i,mu,j
 
-      PARDO ifrag, jfrag,nu,i,mu,j #GETLINE: Fragment_ij_aoa_o_ ####line 407
+      PARDO ifrag, jfrag,nu,i,mu,j "Frag{ij}{aoa}{o}" ####line 407
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -428,7 +428,7 @@ import "mcpt2_vars.sialx"
 #     Fourth stage --> form Vaibj (1122) 
 # ---------------------------------------------------------------------------- 
 
-      PARDO ifrag, jfrag, mu, i, b, j #GETLINE: Fragment_ij_ao_vo_
+      PARDO ifrag, jfrag, mu, i, b, j "Frag{ij}{ao}{vo}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -448,7 +448,7 @@ import "mcpt2_vars.sialx"
 # ---------------------------------------------------------------------------- 
 #     Fourth stage --> form Viabj (1122) 
 # ---------------------------------------------------------------------------- 
-      PARDO ifrag, jfrag, nu, i, b, j  #GETLINE: Fragment_ij_ao_vo_
+      PARDO ifrag, jfrag, nu, i, b, j  "Frag{ij}{ao}{vo}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -468,7 +468,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag,jfrag, nu, i, b, j
 
-      PARDO ifrag, jfrag, nu, a, j, j1 #GETLINE: Fragment_ij_av_oo_
+      PARDO ifrag, jfrag, nu, a, j, j1 "Frag{ij}{av}{oo}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -491,7 +491,7 @@ import "mcpt2_vars.sialx"
 #     Fourth stage --> form Viijj (1122) 
 # ---------------------------------------------------------------------------- 
 #
-      PARDO ifrag, jfrag, nu, i, j, j1  #GETLINE: Fragment_ij_ao_oo
+      PARDO ifrag, jfrag, nu, i, j, j1  "Frag{ij}{ao}{oo}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -510,7 +510,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag, jfrag, nu, i, j, j1
 
-      PARDO ifrag, jfrag, i, i1, mu, j  #GETLINE: Fragment_ij_oo_ao
+      PARDO ifrag, jfrag, i, i1, mu, j  "Frag{ij}{oo}{ao}"
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
       where (int)SwOccA_frag[(index)i1] == ifrag
@@ -529,7 +529,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag, jfrag, i, i1, mu, j
 
-      PARDO ifrag, jfrag, mu, i, i1, j #GETLINE: Fragment_ij_aoo_o ######## line 532
+      PARDO ifrag, jfrag, mu, i, i1, j "Frag{ij}{aoo}{o}" ######## line 532
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -558,7 +558,7 @@ import "mcpt2_vars.sialx"
 # ---------------------------------------------------------------------------- 
 #     Compute E^(20) on all dimers  
 # ---------------------------------------------------------------------------- 
-      PARDO ifrag, jfrag, a, i, b, j #GETLINE: Fragment_ij_vo_vo_   #### line 561
+      PARDO ifrag, jfrag, a, i, b, j "Frag{ij}{vo}{vo}"   #### line 561
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
@@ -624,7 +624,7 @@ import "mcpt2_vars.sialx"
 
       PROC REFORM_WC
       server_barrier
-      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
+      PARDO ifrag, mu, nu "Frag{i}{aa}{}"
 	 where (int)SwAO_frag[(index)mu] == ifrag
 	 where (int)SwAO_frag[(index)nu] == ifrag
 
@@ -686,7 +686,7 @@ import "mcpt2_vars.sialx"
 # Form the contribution from /sum_C Hai(C) 
 #
 
-      PARDO ifrag, mu, nu #GETLINE: Fragment_i_aa__
+      PARDO ifrag, mu, nu "Frag{i}{aa}{}"
 	 where (int)SwAO_frag[(index)mu] == ifrag
 	 where (int)SwAO_frag[(index)nu] == ifrag
 
@@ -710,7 +710,7 @@ import "mcpt2_vars.sialx"
 
       ENDPARDO ifrag, mu, nu
 
-      PARDO ifrag,jfrag, mu, nu #GETLINE: Fragment_Nij_a_a_ #line 713
+      PARDO ifrag,jfrag, mu, nu "Frag{Nij}{a}{a}" #line 713
       where ifrag != jfrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
@@ -1221,7 +1221,7 @@ import "mcpt2_vars.sialx"
       esum = 0.0 
       et1_correction = 0.0  
 
-      PARDO ifrag, a, i #GETLINE: Fragment_i_vo__
+      PARDO ifrag, a, i "Frag{i}{vo}{}"
         where (int)SwVirtA_frag[(index)a] == ifrag
         where (int)SwOccA_frag[(index)i] == ifrag
         icount = (scalar)ifrag
@@ -1242,7 +1242,7 @@ import "mcpt2_vars.sialx"
 
 # Compute initial singles energy of clusters  
 
-      PARDO ifrag, a, i #GETLINE: Fragment_i_vo__
+      PARDO ifrag, a, i "Frag{i}{vo}{}"
       where (int)SwVirtA_frag[(index)a] == ifrag
       where (int)SwOccA_frag[(index)i] == ifrag
       icount = (scalar)ifrag
@@ -1296,7 +1296,7 @@ import "mcpt2_vars.sialx"
       DO jiter
       print jiter
 
-      PARDO ifrag, a, i #GETLINE: Fragment_i_vo__
+      PARDO ifrag, a, i "Frag{i}{vo}{}"
 
          GET     e1error[ifrag] 
          etemp = e1error[ifrag] 
@@ -1314,7 +1314,7 @@ import "mcpt2_vars.sialx"
 
       server_barrier
 
-      PARDO ifrag, a, i #GETLINE: Fragment_i_vo__
+      PARDO ifrag, a, i "Frag{i}{vo}{}"
 	 where (int)SwOccA_frag[(index)i] == ifrag
 	 where (int)SwVirtA_frag[(index)a] == ifrag
          icount = (scalar)ifrag
@@ -1336,7 +1336,7 @@ import "mcpt2_vars.sialx"
 
 
 
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	 where (int)SwVirtA_frag[(index)a] == ifrag
 	 where (int)SwOccA_frag[(index)i] == ifrag
 	 where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -1377,7 +1377,7 @@ import "mcpt2_vars.sialx"
 
 
 
-      PARDO ifrag, jfrag, a, i, a1, i1 #GETLINE: Fragment_Nij_vo_vo_
+      PARDO ifrag, jfrag, a, i, a1, i1 "Frag{Nij}{vo}{vo}"
       where ifrag != jfrag
       where (int)elst_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -1416,7 +1416,7 @@ import "mcpt2_vars.sialx"
       endpardo ifrag
       sip_barrier 
 
-      PARDO ifrag, a, i #GETLINE: Fragment_i_vo__
+      PARDO ifrag, a, i "Frag{i}{vo}{}"
 	 where (int)SwVirtA_frag[(index)a] == ifrag
 	 where (int)SwOccA_frag[(index)i] == ifrag
          icount = (scalar)ifrag
@@ -1488,7 +1488,7 @@ import "mcpt2_vars.sialx"
 
       esum = 0.0 
 
-      PARDO ifrag, a, i, a1, i1  #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1  "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -1508,7 +1508,7 @@ import "mcpt2_vars.sialx"
       server_barrier
 
 
-      PARDO ifrag, a, i, a1, i1  #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1  "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -1535,7 +1535,7 @@ import "mcpt2_vars.sialx"
 # Now form the initial guess to Taibj 
 # -----------------------------------------------------------------------------
 
-      PARDO ifrag, jfrag, a, i, b, j   #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i, b, j   "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -1566,7 +1566,7 @@ import "mcpt2_vars.sialx"
 # Zero out the T20aiai array at the beginning of the microiterations 
 # This is the updated doubles V_X + H_0XY*T_XY
 
-      PARDO ifrag, jfrag, a, i, b, j    #GETLINE: Fragment_Rij_vo_vo_
+      PARDO ifrag, jfrag, a, i, b, j    "Frag{Rij}{vo}{vo}"
       where (int)rcut_dist[ifrag,jfrag] == ifrag
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
@@ -1586,7 +1586,7 @@ import "mcpt2_vars.sialx"
 # First form the initial guess to Taiai 
 # -----------------------------------------------------------------------------
 
-      PARDO ifrag, a, i, a1, i1    #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1    "Frag{i}{vovo}{}"
 	 where (int)SwVirtA_frag[(index)a] == ifrag
 	 where (int)SwOccA_frag[(index)i] == ifrag
 	 where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -1664,7 +1664,7 @@ import "mcpt2_vars.sialx"
 
 
 
-      PARDO ifrag, jfrag, a, i, b, j     #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i, b, j     "Frag{NRij}{vo}{vo}"
       where jfrag != ifrag 
       where (int)rcut_dist[ifrag,jfrag] == ifrag
 	 where (int)SwVirtA_frag[(index)a] == ifrag
@@ -1754,7 +1754,7 @@ import "mcpt2_vars.sialx"
       print kiter
 #
       sip_barrier
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -1775,7 +1775,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i, a1, i1
 
 
-      PARDO ifrag, mu, nu, i, i1 #GETLINE: Fragment_i_aaoo
+      PARDO ifrag, mu, nu, i, i1 "Frag{i}{aaoo}{}"
 	  where (int)SwAO_frag[(index)mu] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwAO_frag[(index)nu] == ifrag
@@ -1802,7 +1802,7 @@ import "mcpt2_vars.sialx"
 
 
 # Form backtransformed amplitudes 
-      PARDO ifrag, mu, i, a, j #GETLINE: Fragment_i_aovo__
+      PARDO ifrag, mu, i, a, j "Frag{i}{aovo}{}"
 	  where (int)SwAO_frag[(index)mu] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a] == ifrag
@@ -1842,7 +1842,7 @@ import "mcpt2_vars.sialx"
 #
 # Do Ladder contraction 
 #
-      PARDO ifrag, mu, nu, lambda, sigma #GETLINE: Fragment_i_aaaa__
+      PARDO ifrag, mu, nu, lambda, sigma "Frag{i}{aaaa}{}"
 	  where (int)SwAO_frag[(index)mu] == ifrag
 	  where (int)SwAO_frag[(index)nu] == ifrag
 	  where (int)SwAO_frag[(index)lambda] == ifrag
@@ -1878,7 +1878,7 @@ import "mcpt2_vars.sialx"
 #
 # Add the WMEBJ term 
 #
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -1920,7 +1920,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i, a1, i1
 
 
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
@@ -1962,7 +1962,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i, a1, i1
 
 
-      PARDO ifrag, a, j, b1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, j, b1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)j] == ifrag
 	  where (int)SwVirtA_frag[(index)b1] == ifrag
@@ -1998,7 +1998,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, j, b1, i1
 
 
-      PARDO ifrag, a, i1, b, j1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i1, b, j1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwVirtA_frag[(index)b] == ifrag
 	  where (int)SwOccA_frag[(index)i1] == ifrag
@@ -2035,7 +2035,7 @@ import "mcpt2_vars.sialx"
 #    Perform final transformation of LADDER contribution
 #    ---------------------------------------------------
 #
-      PARDO ifrag, nu, i, j #GETLINE: Fragment_i_aoo__
+      PARDO ifrag, nu, i, j "Frag{i}{aoo}{}"
 	  where (int)SwAO_frag[(index)nu] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwOccA_frag[(index)j] == ifrag
@@ -2088,7 +2088,7 @@ import "mcpt2_vars.sialx"
 #
 # Form the new ampllitude 
 #
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -2117,7 +2117,7 @@ import "mcpt2_vars.sialx"
 #
 # Form the new energy 
 #
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
 	  where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -2222,7 +2222,7 @@ import "mcpt2_vars.sialx"
       DO kiter 
 	 print kiter
 #
-      PARDO ifrag, jfrag, a, i, a1, i1 #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i, a1, i1 "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2244,7 +2244,7 @@ import "mcpt2_vars.sialx"
       ENDIF
       ENDPARDO ifrag, jfrag, a, i, a1, i1
 
-      PARDO ifrag, jfrag, mu, i, nu, i1 #GETLINE: Fragment_NRij_ao_ao
+      PARDO ifrag, jfrag, mu, i, nu, i1 "Frag{NRij}{ao}{ao}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)mu] == ifrag
@@ -2269,7 +2269,7 @@ import "mcpt2_vars.sialx"
       server_barrier
 
 # Form backtransformed amplitudes 
-      PARDO ifrag, jfrag, a, i, mu, j #GETLINE: Fragment_NRij_vo_ao_
+      PARDO ifrag, jfrag, a, i, mu, j "Frag{NRij}{vo}{ao}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2312,7 +2312,7 @@ import "mcpt2_vars.sialx"
 
 
 # Do Ladder contraction 
-      PARDO ifrag, jfrag, mu, lambda, nu, sigma #GETLINE: Fragment_NRij_aa_aa_
+      PARDO ifrag, jfrag, mu, lambda, nu, sigma "Frag{NRij}{aa}{aa}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
 	  where (int)SwAO_frag[(index)mu] == ifrag
@@ -2348,7 +2348,7 @@ import "mcpt2_vars.sialx"
 
 
 # Add the WMEBJ term 
-      PARDO ifrag, jfrag, a, i1, b1, j #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i1, b1, j "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2385,7 +2385,7 @@ import "mcpt2_vars.sialx"
       ENDIF
       ENDPARDO ifrag, jfrag, a, i1, b1, j
 
-      PARDO ifrag, jfrag, a, a1, j, j1 #GETLINE: Fragment_NRij_vv_oo_
+      PARDO ifrag, jfrag, a, a1, j, j1 "Frag{NRij}{vv}{oo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
 	  where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2421,7 +2421,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, jfrag, a, a1, j, j1
 
 #     v^2 o^4 term  
-      PARDO ifrag, jfrag, a, i1, b, j1 #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i1, b, j1 "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2458,7 +2458,7 @@ import "mcpt2_vars.sialx"
       server_barrier
 
 #    Perform final transformation of LADDER contribution
-      PARDO ifrag, jfrag, i, nu, j #GETLINE: Fragment_NRij_o_ao_
+      PARDO ifrag, jfrag, i, nu, j "Frag{NRij}{o}{ao}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwAO_frag[(index)nu] == jfrag
@@ -2512,7 +2512,7 @@ import "mcpt2_vars.sialx"
 
 
 #    Add the contributions coming from Vaiai  
-      PARDO ifrag, jfrag, a, i, b, j #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i, b, j "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2578,7 +2578,7 @@ import "mcpt2_vars.sialx"
       server_barrier
 
 # Form the new amplitude 
-      PARDO ifrag, jfrag, a, i, a1, i1 #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i, a1, i1 "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2611,7 +2611,7 @@ import "mcpt2_vars.sialx"
       server_barrier
 
 # Form the new energy 
-      PARDO ifrag, jfrag, a, i, a1, i1 #GETLINE: Fragment_NRij_vo_vo_
+      PARDO ifrag, jfrag, a, i, a1, i1 "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
       where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2686,7 +2686,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag  
 #
       sip_barrier
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -2704,7 +2704,7 @@ import "mcpt2_vars.sialx"
          do_iter = 0.0 
 #
       sip_barrier
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -2727,7 +2727,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i, a1, i1
 
 
-      PARDO ifrag, mu, nu, i, i1 #GETLINE: Fragment_i_aaoo__
+      PARDO ifrag, mu, nu, i, i1 "Frag{i}{aaoo}{}"
 	where (int)SwAO_frag[(index)mu] == ifrag
 	where (int)SwAO_frag[(index)nu] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
@@ -2751,7 +2751,7 @@ import "mcpt2_vars.sialx"
 
       server_barrier
 
-      PARDO ifrag, mu, i, a, j #GETLINE: Fragment_i_aovo__
+      PARDO ifrag, mu, i, a, j "Frag{i}{aovo}{}"
 	where (int)SwAO_frag[(index)mu] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwVirtA_frag[(index)a] == ifrag
@@ -2792,7 +2792,7 @@ import "mcpt2_vars.sialx"
 
       server_barrier
 
-      PARDO ifrag, mu, nu, lambda, sigma #GETLINE: Fragment_i_aaaa__
+      PARDO ifrag, mu, nu, lambda, sigma "Frag{i}{aaaa}{}"
 	where (int)SwAO_frag[(index)mu] == ifrag
 	where (int)SwAO_frag[(index)nu] == ifrag
 	where (int)SwAO_frag[(index)lambda] == ifrag
@@ -2830,7 +2830,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, mu, nu, lambda, sigma
 
 
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -2878,7 +2878,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i, a1, i1
 
 
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a1] == ifrag
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
@@ -2924,7 +2924,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i, a1, i1
 
 
-      PARDO ifrag, a, i1, b1, j #GETLINE: Fragment_i_vovo
+      PARDO ifrag, a, i1, b1, j "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)j] == ifrag
 	where (int)SwOccA_frag[(index)i1] == ifrag
@@ -2964,7 +2964,7 @@ import "mcpt2_vars.sialx"
       ENDPARDO ifrag, a, i1, b1, j
 
 
-      PARDO ifrag, a, i1, b, j1 #GETLINE: Fragment_i_vovo
+      PARDO ifrag, a, i1, b, j1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwVirtA_frag[(index)b] == ifrag
 	where (int)SwOccA_frag[(index)i1] == ifrag
@@ -3002,7 +3002,7 @@ import "mcpt2_vars.sialx"
 
       server_barrier
 
-      PARDO ifrag, nu, i, j #GETLINE: Fragment_i_aoo__
+      PARDO ifrag, nu, i, j "Frag{i}{aoo}{}"
 	where (int)SwAO_frag[(index)nu] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwOccA_frag[(index)j] == ifrag
@@ -3060,7 +3060,7 @@ import "mcpt2_vars.sialx"
       server_barrier
 
 
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo__
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -3094,7 +3094,7 @@ import "mcpt2_vars.sialx"
       endpardo ifrag
       server_barrier
       esum = 0.0
-      PARDO ifrag, a, i, a1, i1 #GETLINE: Fragment_i_vovo
+      PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	where (int)SwVirtA_frag[(index)a] == ifrag
 	where (int)SwOccA_frag[(index)i] == ifrag
 	where (int)SwVirtA_frag[(index)a1] == ifrag
@@ -3187,7 +3187,7 @@ PROC ADDITIONAL_FRAG_TRAN
     server_barrier
     print "performing additional first/second stage integral transformation"
 
-    PARDO ifrag, jfrag, mu, nu, lambda #GETLINE: Fragment_ij_aa_a_
+    PARDO ifrag, jfrag, mu, nu, lambda "Frag{ij}{aa}{a}"
     where (int)elst_dist[ifrag,jfrag] == ifrag
     where (int)SwAO_frag[(index)mu] == ifrag
     where (int)SwAO_frag[(index)nu] == ifrag
@@ -3230,7 +3230,7 @@ PROC ADDITIONAL_FRAG_TRAN
     server_barrier
     print "performing additional third transformation"
 
-    PARDO ifrag, jfrag, mu, nu, b, j #GETLINE: Fragment_ij_aa_vo_
+    PARDO ifrag, jfrag, mu, nu, b, j "Frag{ij}{aa}{vo}"
     where (int)elst_dist[ifrag,jfrag] == ifrag
     where (int)SwAO_frag[(index)mu] == ifrag
     where (int)SwAO_frag[(index)nu] == ifrag
@@ -3251,7 +3251,7 @@ PROC ADDITIONAL_FRAG_TRAN
 
 
 
-    PARDO ifrag, jfrag, nu, i, j, j1  #GETLINE: Fragment_ij_ao_oo
+    PARDO ifrag, jfrag, nu, i, j, j1  "Frag{ij}{ao}{oo}"
     where (int)elst_dist[ifrag,jfrag] == ifrag
     where (int)SwAO_frag[(index)nu] == ifrag
     where (int)SwOccA_frag[(index)i] == ifrag
@@ -3269,7 +3269,7 @@ PROC ADDITIONAL_FRAG_TRAN
 
     ENDPARDO ifrag, jfrag, nu, i, j, j1
 
-    PARDO ifrag, jfrag, nu, a, b, j #GETLINE: Fragment_ij_av_vo_
+    PARDO ifrag, jfrag, nu, a, b, j "Frag{ij}{av}{vo}"
     where (int)elst_dist[ifrag,jfrag] == ifrag
     where (int)SwVirtA_frag[(index)a] == ifrag
     where (int)SwAO_frag[(index)nu] == ifrag
@@ -3299,7 +3299,7 @@ PROC FORM_JFRAG_HBAR
 #do ifrag
 #where ifrag == 1
 
-    PARDO ifrag, jfrag, i, i1, b, j #GETLINE: Fragment_NR1ij_oo_vo_
+    PARDO ifrag, jfrag, i, i1, b, j "Frag{NR1ij}{oo}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3317,7 +3317,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, i, i1, b, j
 
-    PARDO ifrag, jfrag, i, i1, b, j #GETLINE: Fragment_NR1ij_oo_vo_
+    PARDO ifrag, jfrag, i, i1, b, j "Frag{NR1ij}{oo}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3338,7 +3338,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, i, i1, b, j
 
-    PARDO ifrag, jfrag, a, a1, b, j #GETLINE: Fragment_NR1ij_vv_vo_
+    PARDO ifrag, jfrag, a, a1, b, j "Frag{NR1ij}{vv}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3354,7 +3354,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, a, a1, b, j
 
-    PARDO ifrag, jfrag, a, a1, b, j #GETLINE: Fragment_NR1ij_vv_vo_
+    PARDO ifrag, jfrag, a, a1, b, j "Frag{NR1ij}{vv}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3377,7 +3377,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, a, a1, b, j
 
-    PARDO ifrag, jfrag, a, i, b, j #GETLINE: Fragment_NR1ij_vo_vo_
+    PARDO ifrag, jfrag, a, i, b, j "Frag{NR1ij}{vo}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3393,7 +3393,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, a, i, b, j
 
-    PARDO ifrag, jfrag, a, i, b, j #GETLINE: Fragment_NR1ij_vo_vo_
+    PARDO ifrag, jfrag, a, i, b, j "Frag{NR1ij}{vo}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3419,7 +3419,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, a, i, b, j
 
-    PARDO ifrag, jfrag, a, i, b, j #GETLINE: Fragment_NR1ij_vo_vo_
+    PARDO ifrag, jfrag, a, i, b, j "Frag{NR1ij}{vo}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -3447,7 +3447,7 @@ PROC FORM_JFRAG_HBAR
 
     ENDPARDO ifrag, jfrag, a, i, b, j
 
-    PARDO ifrag, jfrag, a, i, b, j #GETLINE: Fragment_NR1ij_vo_vo_
+    PARDO ifrag, jfrag, a, i, b, j "Frag{NR1ij}{vo}{vo}"
     where ifrag == 1
     where jfrag > 1
     where (int)rcut_dist[ifrag,jfrag] == ifrag
