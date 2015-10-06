@@ -89,6 +89,8 @@ ACES_SOURCEFILES=\
 ./src/sip/worker/loop_manager.h\
 ./src/sip/worker/fragment_loop_manager.cpp\
 ./src/sip/worker/fragment_loop_manager.h\
+./src/sip/worker/pardo_loop_factory.cpp\
+./src/sip/worker/pardo_loop_factory.h\
 ./src/sip/worker/interpreter.cpp\
 ./src/sip/worker/interpreter.h\
 ./src/sip/worker/global_state.h\
