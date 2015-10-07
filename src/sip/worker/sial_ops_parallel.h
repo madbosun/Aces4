@@ -104,6 +104,7 @@ public:
 		wait_time_.print_op_table_stats_impl(os, sip_tables);
 	}
 
+
 	/** mpi related types and variable */
 	//TODOD is this the right place for this?
     const static int id_line_section_size;
@@ -193,7 +194,7 @@ private:
 
 	bool nearlyEqual(double a, double  b, double epsilon);
 
-
+	friend void ::list_blocks_with_number();
 
 	DISALLOW_COPY_AND_ASSIGN(SialOpsParallel);
 

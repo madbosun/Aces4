@@ -350,24 +350,26 @@ int main(int argc, char* argv[]) {
 	setup::SetupReader::SialProgList &progs = setup_reader->sial_prog_list();
 	setup::SetupReader::SialProgList::iterator it;
 
-#ifdef HAVE_MPI
+//#ifdef HAVE_MPI
+// opening files for timer printout
 	std::string job(parameters.job);
 	job.resize(job.size()-4); //remove the ".dat" from the job string
-	std::ofstream timer_output;
-	if (sip_mpi_attr.is_company_master()) {
-		if (sip_mpi_attr.is_server()) {
-			timer_output.open((std::string("server_data_for_").append(job).append(".csv")).c_str());
-		} else {
-			timer_output.open((std::string("worker_data_for_").append(job).append(".csv")).c_str());
-		}
-	}
+	std::ofstream server_timer_output;
+	std::ofstream worker_timer_output;
+//	if (sip_mpi_attr.is_company_master()) {
+#ifdef HAVE_MPI
+			server_timer_output.open((std::string("server_data_for_").append(job).append(".csv")).c_str());
 #endif
+			worker_timer_output.open((std::string("worker_data_for_").append(job).append(".csv")).c_str());
+//	}
+//#endif
 
 #ifdef HAVE_MPI
 	sip::ServerPersistentArrayManager persistent_server;
 	sip::WorkerPersistentArrayManager persistent_worker;
-	std::ostream& server_stat_os = std::cout;
-	std::ostream& worker_stat_os = std::cout;
+
+	std::ostream& server_stat_os = server_timer_output;
+	std::ostream& worker_stat_os = worker_timer_output;
 #else
 	sip::WorkerPersistentArrayManager persistent_worker;
 	std::ostream& worker_stat_os = std::cout;
@@ -403,11 +405,13 @@ int main(int argc, char* argv[]) {
 		server.run();
 		SIP_LOG(std::cout<<"PBM after program at Server "<< sip_mpi_attr.global_rank()<< " : " << sialfpath << " :"<<std::endl<<persistent_server;);
 
-		sip::MPITimer save_persistent_timer(sip_mpi_attr.company_communicator());
+			sip::MPITimer save_persistent_timer(sip_mpi_attr.company_communicator());
+			sip::MPITimerList save_persistent_timers(sip_mpi_attr.company_communicator(), sipTables.num_arrays());
 
-		save_persistent_timer.start();
-		persistent_server.save_marked_arrays(&server);
-		save_persistent_timer.pause();
+			save_persistent_timer.start();
+			persistent_server.save_marked_arrays(&server, &save_persistent_timers);
+			save_persistent_timer.pause();
+
 
 		//print worker stats before barrier
 		MPI_Barrier(MPI_COMM_WORLD);
@@ -451,8 +455,6 @@ int main(int argc, char* argv[]) {
 		sip::SIPMPIUtils::check_err(MPI_Barrier(MPI_COMM_WORLD));
 #endif
 	} //end of loop over programs
-
-
 
 #ifdef HAVE_MPI
 	sip::SIPMPIAttr::cleanup(); // Delete singleton instance
