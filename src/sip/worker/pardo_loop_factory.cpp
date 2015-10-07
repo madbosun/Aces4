@@ -89,7 +89,7 @@ std::map<std::string, enum PardoLoopFactory::Loop_t> PardoLoopFactory::pardo_var
 //if single node, and asking for non-existent loop manager, just give default without complaining
 			which_pardo = default_loop;
 		}
-		std::cout << which_pardo << std::endl;
+//		std::cout << which_pardo << std::endl;
 		switch(which_pardo){
 		case SequentialPardoLoop:
 			return new sip::SequentialPardoLoop(num_indices, index_ids, data_manager, sip_tables);

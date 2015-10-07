@@ -265,10 +265,10 @@ public:
 				if (map != NULL) {
 					ArrayFile* array_file = parent->array_files_.at(i);
 					if (array_file != NULL) {
-						os << "Array " << i << ":"
-								<< parent->sip_tables_.array_name(i) << std::endl;
-						array_file->stats_.gather_and_print_statistics(os,
-								array_file);
+					    if(SIPMPIAttr::get_instance().is_company_master()){
+						os << "Array " << i << ":" << parent->sip_tables_.array_name(i) << std::endl;
+					    }
+						array_file->stats_.gather_and_print_statistics(os, array_file);
 					}
 				}
 			}
