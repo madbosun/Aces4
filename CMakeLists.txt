@@ -545,6 +545,7 @@ set(SIAL_FILES
     src/sialx/qm/mcpt2_defs.sialx;
     src/sialx/qm/mcpt2_singles.sialx;
     src/sialx/qm/mcpt2_doubles.sialx;
+    src/sialx/qm/mcpt2_util.sialx;
     src/sialx/qm/mp2_rhf_disc.sialx;
     src/sialx/qm/tran_rhf_no4v.sialx;
     src/sialx/qm/tran_uhf_no4v.sialx;

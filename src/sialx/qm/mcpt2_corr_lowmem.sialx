@@ -3,6 +3,7 @@ import "mcpt2_vars.sialx"
 import "tran_frag.sialx"
 import "mcpt2_singles.sialx"
 import "mcpt2_doubles.sialx"
+import "mcpt2_util.sialx"
 #
                            SIAL FRAG_2ORDER_CORR 
 # 
@@ -193,120 +194,6 @@ PROC FORM_JFRAG_HBAR
 
     server_barrier
 ENDPROC FORM_JFRAG_HBAR
-
-
-      PROC SET_FRAG_PARMS    
-#     ------------------- 
-#
-#     Determine the number of fragments  
-#     --------------------------------- 
-      execute set_frag n_frags
-     #print_scalar nfrags
-      #allocate wAO_frag[*] 
-      #allocate wOccA_frag[*] 
-      #allocate wOccB_frag[*] 
-      #allocate wVirtA_frag[*] 
-      #allocate wVirtB_frag[*] 
-
-      #allocate SwAO_frag[*] 
-      #allocate SwOccA_frag[*] 
-      #allocate SwOccB_frag[*] 
-      #allocate SwVirtA_frag[*] 
-      #allocate SwVirtB_frag[*] 
-
-      #allocate elst_dist[*,*]
-      #allocate rcut_dist[*,*]
-
-      do kfrag
-      do jfrag
-	  where jfrag <= kfrag
-	  icount = (scalar)kfrag
-	  jcount = (scalar)jfrag
-
-          execute return_pairs icount jcount elst_thresh pair_flag 
-	  elst_dist[kfrag,jfrag] = 0.0
-	  elst_dist[jfrag,kfrag] = 0.0
-
-          if pair_flag > zero
-	  elst_dist[kfrag,jfrag] = (scalar)kfrag
-	  elst_dist[jfrag,kfrag] = (scalar)jfrag
-	  endif
-
-          execute return_pairs icount jcount r_thresh pair_flag 
-	  rcut_dist[kfrag,jfrag] = 0.0
-	  rcut_dist[jfrag,kfrag] = 0.0
-
-          if pair_flag > zero
-	  rcut_dist[kfrag,jfrag] = (scalar)kfrag
-	  rcut_dist[jfrag,kfrag] = (scalar)jfrag
-	  endif
-
-      enddo jfrag
-      enddo kfrag
-
-      do jfrag
-#
-	  icount = (scalar)jfrag
-          i_aostart = icount
-          i_aoend   = 1.0
-          execute frag_index_range i_aostart i_aoend
-         i_vstart  = icount
-         i_vend    = 6.0
-         execute frag_index_range i_vstart i_vend
-         a_vstart  = icount
-         a_vend    = 7.0
-         execute frag_index_range a_vstart a_vend
-
-          m = 0.0
-          do mu
-              m += 1.0
-              if m >= i_aostart
-              if m <= i_aoend
-              SwAO_frag[(index)mu] = (scalar)jfrag
-              endif
-              endif
-	      if m > i_aoend
-		  exit
-	      endif
-          enddo mu
-         DO i
-            m = 0.0
-            do i1
-               m += 1.0
-               if i == i1
-                  exit
-               endif
-            enddo i1
-            if m >= i_vstart
-            if m <= i_vend
-               SwOccA_frag[(index)i] = (scalar)jfrag
-            endif
-            endif
-	    if m > i_vend
-		exit
-            endif
-         ENDDO i
-         DO a
-            m = 0.0
-            do a1
-               m += 1.0
-               if a == a1
-                  exit
-               endif
-            enddo a1
-            if m >= a_vstart
-            if m <= a_vend
-               SwVirtA_frag[(index)a] = (scalar)jfrag
-            endif
-            endif
-	    if m > a_vend
-		exit
-            endif
-         ENDDO a
-      enddo jfrag
-
-      sip_barrier
-      ENDPROC SET_FRAG_PARMS    
 #
       PROC IGUESS   
 #     ----------- 

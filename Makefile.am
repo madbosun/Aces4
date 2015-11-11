@@ -494,6 +494,7 @@ SIOX_FILES=\
 ./src/sialx/qm/mcpt2_defs.siox\
 ./src/sialx/qm/mcpt2_singles.siox\
 ./src/sialx/qm/mcpt2_doubles.siox\
+./src/sialx/qm/mcpt2_util.siox\
 ./src/sialx/qm/mp2_rhf_disc.siox\
 ./src/sialx/qm/rcis_rhf.siox\
 ./src/sialx/qm/rcis_d_rhf.siox\
