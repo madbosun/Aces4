@@ -7,6 +7,7 @@
 
 #include <block_shape.h>
 #include <iostream>
+#include <limits>
 
 using namespace std::rel_ops;
 
@@ -40,11 +41,18 @@ std::ostream& operator<<(std::ostream& os, const BlockShape & shape) {
 	return os;
 }
 
+/**
+ * This method returns an int, but computes the block shape internally as
+ * size_t and checks that it is in range.
+ * TODO  This test should be done with a tool offline.
+ * @return
+ */
 int BlockShape::num_elems() const{
-	int num_elems = 1;
+	size_t num_elems = 1;
 	for (int i = 0; i < MAX_RANK; i++) {
 		num_elems *= segment_sizes_[i];
 	}
+	check (num_elems < std::numeric_limits<int>::max(), "block size too large");
 	return num_elems;
 }
 
@@ -66,14 +74,6 @@ bool BlockShape::operator<(const BlockShape& rhs) const {
 	return (is_leq && !is_eq);
 }
 
-int BlockShape::get_inferred_rank() const{
-	int rank = MAX_RANK;
-	for (int i = MAX_RANK-1; i >=0 ; --i){
-		if (segment_sizes_[i] == 1){
-			rank--;
-		}
-		else return rank;
-	}
-}
+
 
 } /* namespace sip */

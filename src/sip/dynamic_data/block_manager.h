@@ -35,7 +35,7 @@ class BlockManager {
 public:
 
 	typedef std::vector<BlockId> BlockList;
-	typedef std::map<BlockId, int> BlockIdToIndexMap;
+//	typedef std::map<BlockId, int> BlockIdToIndexMap;
 
 	BlockManager(const SipTables &sip_tables);
 	~BlockManager();
