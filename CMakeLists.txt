@@ -188,6 +188,8 @@ set(ACES_WORKER_FILES
     src/sip/worker/sial_math.cpp;
     src/sip/worker/tracer.h;
     src/sip/worker/tracer.cpp;
+    src/sip/worker/worker_async_ops.h;
+    src/sip/worker/worker_async_ops.cpp;
     src/sip/sip_interface.h;
     src/sip/sip_interface.cpp;
     src/sip/tensor_algebra/tensor_ops_c_prototypes.h;

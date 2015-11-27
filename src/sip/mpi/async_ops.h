@@ -147,13 +147,10 @@ private:
  */
 class BlockAsyncManager {
 public:
-	BlockAsyncManager():
-		num_pending_writes_(0),
-		num_pending_gets_(0){
-	}
-	~BlockAsyncManager() {
-		check(pending_.empty(), "deleting block with pending async ops");
-	}
+	BlockAsyncManager();
+
+	/**waits for pending ops before destruction.  This also prevents the block from being deleted*/
+	~BlockAsyncManager();
 
 	void add_async(AsyncBase* async);
 
@@ -174,21 +171,7 @@ public:
 	 * @return  false if the pending list for the block is not on return empty.
 	 *
 	 */
-	bool try_handle_all_test_none_pending() {
-		std::list<AsyncBase*>::iterator it = pending_.begin();
-		while (it != pending_.end()) {
-			bool res = (*it)->try_handle();
-			if (res) {
-				if ((*it)->is_write()) {
-					num_pending_writes_--;
-				}
-				delete *it;
-				it = pending_.erase(it);
-			} else
-				return false;
-		}
-		return true;
-	}
+	bool try_handle_all_test_none_pending();
 
 	/**
 	 * Attempts to handle the first item in the list.  If the first item is not enabled, the routine
@@ -204,32 +187,7 @@ public:
 	 * been handled.  The difference is how long the methods keep trying.
 	 *
 	 */
-	bool try_handle_test_none_pending() {
-		std::list<AsyncBase*>::iterator it = pending_.begin();
-		//remove already done ops, if any, from list
-		while (it != pending_.end() && (*it)->is_done()) {
-			if ((*it)->is_write()) {
-				num_pending_writes_--;
-			}
-			delete *it;
-			it = pending_.erase(it);
-		}
-		if (it == pending_.end()) {
-			//nothing left to handle
-			return true;
-		}
-		//try to handle first op
-		bool res = (*it)->try_handle();
-		if (res) {
-			if ((*it)->is_write()) {
-				num_pending_writes_--;
-			}
-			delete *it;
-			it = pending_.erase(it);
-		}
-		return pending_.empty();
-
-	}
+	bool try_handle_test_none_pending();
 
 	/** Handles all pending asyncs on this block, waiting for each one in
 	 * turn to be enabled.
@@ -237,41 +195,17 @@ public:
 	 * Postcondition:  there are no pending ops on this block
 	 * */
 
-	void wait_all() {
-		std::list<AsyncBase*>::iterator it = pending_.begin();
-		while (it != pending_.end()) {
-			(*it)->wait();
-			bool res = (*it)->try_handle();
-			check(res, "in BlockAsyncManager::wait--handle ready op failed");
-			if ((*it)->is_write()) {
-				num_pending_writes_--;
-			}
-			delete *it;
-			it = pending_.erase(it);
-		}
-	}
-
+	void wait_all();
 	/** Handles all pending writes on this block, waiting for each one in
 	 * turn to be enabled.  Since ops must be handled in order, any pending
 	 * reads preceding a write in the list are also awaited
 	 *
 	 * Postcondition:  there are no pending write ops on this block
 	 * */
-	void wait_for_writes() {
-		std::list<AsyncBase*>::iterator it = pending_.begin();
-		while (it != pending_.end() && num_pending_writes_>0) {
-			(*it)->wait();
-			bool res = (*it)->try_handle();
-			check(res, "in BlockAsyncManager::wait--handle ready op failed");
-			if ((*it)->is_write()) {
-				num_pending_writes_--;
-			}
-			delete *it;
-			it = pending_.erase(it);
-		}
-	}
 
-private:
+	void wait_for_writes();
+
+protected:
 	std::list<AsyncBase*> pending_;
 	int num_pending_writes_;
 	int num_pending_gets_; //only useful on worker to avoid duplicate gets.

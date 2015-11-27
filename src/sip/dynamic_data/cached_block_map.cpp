@@ -74,7 +74,7 @@ bool CachedBlockMap::test_and_clean_pending(){
     std::list<Block*>::iterator it;
     for (it = pending_delete_.begin(); it != pending_delete_.end(); ){
         Block* bptr = *it;
-        if (bptr->test()){
+        if (bptr->async_state_.try_handle_all_test_none_pending()){
             pending_delete_bytes_ -= bptr->size() * sizeof(double);
             delete *it;
             pending_delete_.erase(it++);
@@ -92,7 +92,7 @@ void CachedBlockMap::wait_and_clean_pending(){
 	std::list<Block*>::iterator it;
 	for (it = pending_delete_.begin(); it != pending_delete_.end(); ){
 		Block* bptr = *it;
-		bptr->wait();
+		bptr->async_state_.wait_all();
 		pending_delete_bytes_ -= bptr->size() * sizeof(double);
 		delete *it;
 		pending_delete_.erase(it++);
@@ -110,7 +110,7 @@ bool CachedBlockMap::wait_and_clean_any_pending() {
 	std::list<Block*>::iterator it = pending_delete_.begin();
 	if (it != pending_delete_.end()){
 		Block* bptr = *it;
-		bptr->wait();
+		bptr->async_state_.wait_all();
 		pending_delete_bytes_ -= bptr->size() * sizeof(double);
 		delete *it;
 		pending_delete_.erase(it);
@@ -147,7 +147,7 @@ void CachedBlockMap::delete_block(const BlockId& block_id){
 	Block* tmp_block_ptr = block_map_.get_and_remove_block(block_id);
 	allocated_bytes_ -= tmp_block_ptr->size() * sizeof(double);
 #ifdef HAVE_MPI
-	if (!tmp_block_ptr->test()){
+	if (!tmp_block_ptr->async_state_.try_handle_all_test_none_pending()){
 		pending_delete_bytes_ += tmp_block_ptr->size() * sizeof(double);
 		pending_delete_.push_back(tmp_block_ptr);
 	} else 

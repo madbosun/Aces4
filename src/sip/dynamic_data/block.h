@@ -33,6 +33,7 @@
 #include "sip_interface.h"
 #include "block_shape.h"
 #include <iostream>
+#include "async_ops.h"
 
 #ifdef HAVE_MPI
 #include "mpi_state.h"
@@ -169,23 +170,17 @@ public:
 
 #endif
 
-#ifdef HAVE_MPI
-	MPI_Request* mpi_request() { return &(state_.mpi_request_); }
-//	bool pending(){ return state_.pending();}
-	bool test(){ return state_.test(); }
-//	void wait(int expected_count){ state_.wait(expected_count);}
-	void wait(){ state_.wait();}
-#endif
 
 private:
 
 	BlockShape shape_;
     int size_;
-	dataPtr data_;
 
+	dataPtr data_;
 	//TODO encapsulate this
 	dataPtr gpu_data_;
 
+	BlockAsyncManager async_state_;
 
 	// Why bitset is a good idea
 	// http://www.drdobbs.com/the-standard-librarian-bitsets-and-bit-v/184401382
@@ -207,15 +202,16 @@ private:
 	 *
 	 * TODO get rid of the type defs.
 	 */
-#ifdef HAVE_MPI
-	MPIState state_;
-//#else
-//	EmptyMPIState state_;
-#endif
+//#ifdef HAVE_MPI
+//	MPIState state_;
+////#else
+////	EmptyMPIState state_;
+//#endif
 
 	friend class DataManager;	// So that data_ of blocks wrapping
-								// Scalars can be set to NULL before destroying them.
-	friend class SialOpsParallel; //To get MPIState object's MPI_Request field
+								// scalars can be set to NULL before destroying them.
+	friend class SialOpsParallel; //to allow access to async_ops_
+	friend class CachedBlockMap; //to allow access to AsyncOps wait and test methods
 	DISALLOW_COPY_AND_ASSIGN(Block);
 };
 
