@@ -13,150 +13,86 @@
 namespace sip {
 
 
-
-
-/************* GetAsync ************/
-
-GetAsync::GetAsync(int mpi_source, int get_tag, ServerBlock* block, int pc) :
-		AsyncBase(pc), mpi_request_() {
-	//send block
-	SIPMPIUtils::check_err(
-			MPI_Isend(block->get_data(), block->size(), MPI_DOUBLE, mpi_source,
-					get_tag, MPI_COMM_WORLD, &mpi_request_), __LINE__,
-			__FILE__);
-}
-
-
-
-/**  PutAccumulateAsync *******************/
-
-PutAccumulateDataAsync::PutAccumulateDataAsync(int mpi_source,
-		int put_accumulate_data_tag, ServerBlock* block, int pc) :
-		AsyncBase(pc), mpi_source_(mpi_source), tag_(put_accumulate_data_tag),  block_(
-				block), mpi_request_(MPI_REQUEST_NULL) {
-	//allocate temp buffer
-
-//	temp_ = new double[block->size()];
-    size_t size = block_->size();
-	temp_ = SIPServer::global_sipserver->disk_backed_block_map_.allocate_data(size, false);
-	//post receive
-	SIPMPIUtils::check_err(
-			MPI_Irecv(temp_, block->size(), MPI_DOUBLE, mpi_source,
-					put_accumulate_data_tag, MPI_COMM_WORLD, &mpi_request_), __LINE__,
-			__FILE__);
-	//reply should be sent in calling routing AFTER this object has been constructed,
-	//so the Irecv will already be posted.
-}
-
-PutAccumulateDataAsync::~PutAccumulateDataAsync() {
-	check(temp_ != NULL,
-			"destructor of PutAccumulateDataAsync invoked with null data_");
-	//delete[] temp_;
-	SIPServer::global_sipserver->disk_backed_block_map_.free_data(temp_, block_->size());
-}
-
-bool PutAccumulateDataAsync::do_test() {
-	int flag = 0;
-	MPI_Status status;
-	MPI_Test(&mpi_request_, &flag, &status);
-	if (flag) {
-		//check that received message was expected size
-		int count;
-		MPI_Get_count(&status, MPI_DOUBLE, &count);
-		check(count == block_->size(), "count != block_->size()");
+AsyncBase::AsyncBase(int pc) :
+			async_status_(WAITING), pc_(pc) {
 	}
-	return flag;
-}
 
-void PutAccumulateDataAsync::do_handle() {
-	//send ack to worker
-	SIPMPIUtils::check_err(
-			MPI_Send(0, 0, MPI_INT, mpi_source_, tag_, MPI_COMM_WORLD),
-			__LINE__, __FILE__);
-	//accumulate received data into block
-	block_->accumulate_data(block_->size(), temp_);
-}
-
-void PutAccumulateDataAsync::do_wait() {
-	MPI_Status status;
-	MPI_Wait(&mpi_request_, &status);
-	//check that received message was expected size
-	int count;
-	MPI_Get_count(&status, MPI_DOUBLE, &count);
-	check(count == block_->size(), "count != block_->size()");
-}
-
-std::string PutAccumulateDataAsync::to_string() const {
-	std::stringstream ss;
-	ss << "PutAccumulateDataAsync";
-	ss << AsyncBase::to_string();
-	ss << " source=" << mpi_source_ << " tag=" << tag_;
-	int transaction;
-	SIPMPIConstants::MessageType_t message_type;
-	BarrierSupport::decode_tag(tag_, message_type, transaction);
-	ss << " message type="
-			<< SIPMPIConstants::messageTypeToName(
-					SIPMPIConstants::intToMessageType(message_type))
-			<< " transaction=" << transaction << std::cout;
-	return ss.str();
-}
-
-
-/******************* PutDataAsync **********/
-
-PutDataAsync::PutDataAsync(int mpi_source, int put_data_tag, ServerBlock* block,
-		int pc) :
-		AsyncBase(pc), mpi_source_(mpi_source), tag_(put_data_tag), block_(
-				block), mpi_request_(MPI_REQUEST_NULL) {
-	//post receive
-	SIPMPIUtils::check_err(
-			MPI_Irecv(block->get_data(), block->size(), MPI_DOUBLE, mpi_source,
-					put_data_tag, MPI_COMM_WORLD, &mpi_request_), __LINE__,
-			__FILE__);
-}
-
-bool PutDataAsync::do_test() {
-	int flag = 0;
-	MPI_Status status;
-	MPI_Test(&mpi_request_, &flag, &status);
-	if (flag) {
-		int count;
-		MPI_Get_count(&status, MPI_DOUBLE, &count);
-		check(count == block_->size(), "count != block->size()");
+AsyncBase::~AsyncBase() {
+		check(async_status_ == DONE,
+				"attempting to deconstruct unhandled request");
 	}
-	return flag;
-}
 
-void PutDataAsync::do_wait() {
-	MPI_Status status;
-	MPI_Wait(&mpi_request_, &status);
-	//check that received message was expected size
-	int count;
-	MPI_Get_count(&status, MPI_DOUBLE, &count);
-	check(count == block_->size(), "count != block_->size()");
-}
+	/** Tests the status of this operation
+	 *
+	 * @return  true if the operation is enabled or completed, and false otherwise
+	 */
+	bool AsyncBase::test() {
+		if (async_status_ != WAITING)
+			return true;
+		if (do_test()) {
+			async_status_ = READY;
+			return true;
+		}
+		return false;
+	}
 
-void PutDataAsync::do_handle() {
-	//send ack to worker
-	SIPMPIUtils::check_err(
-			MPI_Send(0, 0, MPI_INT, mpi_source_, tag_, MPI_COMM_WORLD),
-			__LINE__, __FILE__);
-}
+	/**
+	 * Waits for this operation to be enabled or completed.
+	 * On return, async_status_ is READY or DONE.
+	 */
+	void AsyncBase::wait() {
+		if (async_status_ != WAITING)
+			return;
+		do_wait();
+		async_status_ = READY;
+	}
 
-std::string PutDataAsync::to_string() const {
-	std::stringstream ss;
-	ss << "PutDataAsync";
-	ss << AsyncBase::to_string();
-	ss << " source=" << mpi_source_ << " tag=" << tag_;
-	int transaction;
-	SIPMPIConstants::MessageType_t message_type;
-	BarrierSupport::decode_tag(tag_, message_type, transaction);
-	ss << " message type="
-			<< SIPMPIConstants::messageTypeToName(
-					SIPMPIConstants::intToMessageType(message_type))
-			<< " transaction=" << transaction << std::cout;
-	return ss.str();
-}
+	bool AsyncBase::is_done() {
+		return async_status_ == DONE;
+	}
+
+	/**  Attempts to handle this operation.
+	 *
+	 * If the operation cannot be performed, then async_status remains WAITING and the method returns false
+	 * If the operation can be performed, it is, asynch_status is set to DONE, and the method returns true
+	 *
+	 * @return  true if the operation has been completed and async_status_ set to DONE
+	 */
+	bool AsyncBase::try_handle() {
+		if (async_status_ == READY || ((async_status_ == WAITING) && test())) {
+			do_handle();  //this should always succeed if called when enabled
+			async_status_ = DONE;
+			return true;
+		}
+		return async_status_ == DONE;
+	}
+
+	/** returns true if the asynchronous operation represented by this object
+	 * may modify the block
+	 * @return
+	 */
+	bool AsyncBase::is_write() {
+		return do_is_write();
+	}
+
+	bool AsyncBase::is_get(){
+		return do_is_get();
+	}
+
+	std::ostream& operator<<(std::ostream& os, const AsyncBase &obj) {
+		os << obj.to_string();
+		return os;
+	}
+
+
+	//subclasses should invoke AsyncStatus::to_string() in overriding methods
+	std::string AsyncBase::to_string() const {
+		std::stringstream ss;
+		ss << "async_status_=" << async_status_;
+		ss << " pc_=" << pc_ << " ";
+		return ss.str();
+	}
+
 
 
 
@@ -164,27 +100,12 @@ std::string PutDataAsync::to_string() const {
 /*************ServerBlockAsyncManager*************/
 
 
-void ServerBlockAsyncManager::add_get_reply(int mpi_source, int get_tag,
-		ServerBlock* block, int pc) {
-//create async op, (which does async send of requested block)
-pending_.push_back(new GetAsync(mpi_source, get_tag, block,  pc));
-
+void BlockAsyncManager::add_async(AsyncBase* async){
+	pending_.push_back(async);
+	if (async->is_write()) num_pending_writes_++;
+	if (async->is_get()) num_pending_gets_++;
 }
 
-void ServerBlockAsyncManager::add_put_data_request(int mpi_source, int put_data_tag,
-	ServerBlock* block, int pc) {
-//create async op (which posts irecv)
-pending_.push_back(
-		new PutDataAsync(mpi_source, put_data_tag, block, pc));
-num_pending_writes_++;
-}
 
-void ServerBlockAsyncManager::add_put_accumulate_data_request(int mpi_source,
-	int put_accumulate_data_tag, ServerBlock* block, int pc) {
-//create async op (which posts irecv)
-pending_.push_back(
-		new PutAccumulateDataAsync(mpi_source, put_accumulate_data_tag, block, pc));
-num_pending_writes_++;
-}
 
 } /* namespace sip */

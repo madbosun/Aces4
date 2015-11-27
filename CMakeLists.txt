@@ -77,7 +77,10 @@ set(ACES_CORE_FILES
     src/sip/core/aces_log.h;
     src/sip/core/aces_log.cpp;
     src/sip/core/job_control.h;
-    src/sip/core/job_control.cpp)
+    src/sip/core/job_control.cpp;
+    src/sip/mpi/async_ops.h;
+    src/sip/mpi/async_ops.cpp
+    )
 
 # MPI - Conditional compile for MPI files
 if (HAVE_MPI AND MPI_CXX_FOUND)
@@ -101,8 +104,8 @@ if (HAVE_MPI AND MPI_CXX_FOUND)
         src/sip/mpi/disk_backed_block_map.cpp;
         src/sip/mpi/server_persistent_array_manager.h;
         src/sip/mpi/server_persistent_array_manager.cpp;
-        src/sip/mpi/async_ops.h;
-        src/sip/mpi/async_ops.cpp; 
+        src/sip/mpi/server_async_ops.h;
+        src/sip/mpi/server_async_ops.cpp; 
         src/sip/mpi/counter.h;
         src/sip/mpi/counter.cpp;   
         src/sip/mpi/array_file.h;

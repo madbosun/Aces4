@@ -175,7 +175,7 @@ public:
 private:
 
     BlockData block_data_;
-	ServerBlockAsyncManager async_state_;
+	BlockAsyncManager async_state_;
     DistributedBlockConsistency race_state_;
 
     /**

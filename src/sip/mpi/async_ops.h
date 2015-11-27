@@ -54,43 +54,23 @@ public:
 		WAITING = 1, READY = 2, DONE = 3,
 	};
 
-	AsyncBase(int pc) :
-			async_status_(WAITING), pc_(pc) {
-	}
+	AsyncBase(int pc);
 
-	virtual ~AsyncBase() {
-		check(async_status_ == DONE,
-				"attempting to deconstruct unhandled request");
-	}
+	virtual ~AsyncBase();
 
 	/** Tests the status of this operation
 	 *
 	 * @return  true if the operation is enabled or completed, and false otherwise
 	 */
-	bool test() {
-		if (async_status_ != WAITING)
-			return true;
-		if (do_test()) {
-			async_status_ = READY;
-			return true;
-		}
-		return false;
-	}
+	bool test();
 
 	/**
 	 * Waits for this operation to be enabled or completed.
 	 * On return, async_status_ is READY or DONE.
 	 */
-	void wait() {
-		if (async_status_ != WAITING)
-			return;
-		do_wait();
-		async_status_ = READY;
-	}
+	void wait();
 
-	bool is_done() {
-		return async_status_ == DONE;
-	}
+	bool is_done();
 
 	/**  Attempts to handle this operation.
 	 *
@@ -99,36 +79,27 @@ public:
 	 *
 	 * @return  true if the operation has been completed and async_status_ set to DONE
 	 */
-	bool try_handle() {
-		if (async_status_ == READY || ((async_status_ == WAITING) && test())) {
-			do_handle();  //this should always succeed if called when enabled
-			async_status_ = DONE;
-			return true;
-		}
-		return async_status_ == DONE;
-	}
+	bool try_handle();
 
 	/** returns true if the asynchronous operation represented by this object
 	 * may modify the block
 	 * @return
 	 */
-	bool is_write() {
-		return do_is_write();
-	}
+	bool is_write();
 
-	friend std::ostream& operator<<(std::ostream& os, const AsyncBase &obj) {
-		os << obj.to_string();
-		return os;
-	}
+	/** returns true if the asynchronous operation represented by this object is a get operation
+	 * at the worker.
+	 *
+	 * @return
+	 */
+	bool is_get();
+
+	friend std::ostream& operator<<(std::ostream& os, const AsyncBase &obj);
 
 protected:
 	//subclasses should invoke AsyncStatus::to_string() in overriding methods
-	virtual std::string to_string() const {
-		std::stringstream ss;
-		ss << "async_status_=" << async_status_;
-		ss << " pc_=" << pc_ << " ";
-		return ss.str();
-	}
+	//to handle private variables in this base class.
+	virtual std::string to_string() const;
 
 private:
 	AsyncStatus async_status_; //initially WAITING, must be DONE before destruction
@@ -149,149 +120,20 @@ private:
 	//returns true if this operation may modify the block
 	virtual bool do_is_write()=0;
 
+	//returns true if this operation is a worker get
+	virtual bool do_is_get(){return false;}
+
 	DISALLOW_COPY_AND_ASSIGN (AsyncBase);
 };
 
-/** Represents asynchronous send of block by server in response to get operation
- * Once the send operation is complete, no additional "handling" needs to be done.
- *
- * The block used in the operation should have been obtained by a call to
- * get_block_for reading, which should wait for any pending writes to complete.
- */
-class GetAsync: public AsyncBase {
-public:
-	//asynchronous send with response performed in constructor.
-	GetAsync(int mpi_source, int get_tag, ServerBlock* block, int pc);
-	virtual ~GetAsync() {
-	}
 
-private:
-	MPI_Request mpi_request_;
-
-	bool do_test() {
-		int flag = 0;
-		MPI_Test(&mpi_request_, &flag, MPI_STATUS_IGNORE);
-		return flag;
-	}
-
-	void do_wait() {
-		MPI_Wait(&mpi_request_, MPI_STATUS_IGNORE);
-	}
-
-	void do_handle() {
-		//nothing to do here since we have either returned from wait or test returned true
-	}
-
-	bool do_is_write() {
-		return false;
-	}
-
-	std::string to_string() const {
-		std::stringstream ss;
-		ss << "GetAsync";
-		ss << AsyncBase::to_string();
-		return ss.str();
-	}
-	DISALLOW_COPY_AND_ASSIGN (GetAsync);
-};
-
-/** Represents asynchronous put_accumulate operation at server
- *
- * Instance will be created in response to put_accumulate message to handle
- * the second message containing the data and to perform the accumulate operation.
- *
- * Instances of this class own the temporary buffer used to receive the data.
- *
- * Constructor:
- *             allocates temporary buffer,
- *             posts Irecv for block data.
- *
- * do_handle: sends ack for data message to source
- *           performs the accumulate operation of temp data into block
- *
- * Destructor: deletes the temp data buffer.
- *
- *The constructor does not send the "reply" message to the source to let it know that
- *the data message can be sent.  This should be done AFTER this object is constructed
- *in order to ensure that the Irecv has been posted, and thus ensuring that the
- *large message can bypass the MPI buffers
- *
- *TODO:  reuse the temp buffers?
- *
- */
-class PutAccumulateDataAsync: public AsyncBase {
-public:
-	PutAccumulateDataAsync(int mpi_source, int put_accumulate_data_tag,
-			ServerBlock* block, int pc);
-	virtual ~PutAccumulateDataAsync();
-private:
-	ServerBlock* block_;
-	int mpi_source_;
-	int tag_;
-	MPI_Request mpi_request_;
-	double* temp_; //buffer to receive data.  created in constructor, deleted in destructor
-
-	bool do_test();
-	void do_wait();
-	void do_handle();
-	bool do_is_write() {
-		return true;
-	}
-	virtual std::string to_string() const;
-	DISALLOW_COPY_AND_ASSIGN (PutAccumulateDataAsync);
-};
-
-/** Represents asynchronous put data operation at server.
- *
- * Will be created in response to put message.
- *
- * This class assumes that there is at most one unhandled put message per block at any time.
- * This property is guaranteed because the block should have been obtained by a call
- * to get_block_for_writing,  This method should call the block's
- * CommunicationState.wait method which waits for all pending ops to complete.
- *
- * Constructor: sends reply to source,
- *             posts Irecv for block data
- *             The receive buffer is the block's data array, which should exist already
- *
- * do_handle: sends ack for data message to source
- *
- *The constructor does not send the "reply" message to the source to let it know that
- *the data message can be sent.  This should be done AFTER this object is constructed
- *order to ensure that the Irecv has been posted (and thus ensuring that the message
- *bypasses MPI buffers
- *
- */
-class PutDataAsync: public AsyncBase {
-
-public:
-	PutDataAsync(int mpi_source, int put_data_tag, ServerBlock* block, int pc);
-	virtual ~PutDataAsync() {
-	}
-
-private:
-	ServerBlock* block_;
-	int mpi_source_;
-	int tag_;
-	MPI_Request mpi_request_;
-
-	bool do_test();
-	void do_wait();
-	void do_handle();
-	bool do_is_write() {
-		return true;
-	}
-	std::string to_string() const;
-	DISALLOW_COPY_AND_ASSIGN (PutDataAsync);
-};
-
-/** This class manages the pending asynchronous communication
+/** This class manages the pending asynchronous
  * operations on a single block.  It contains
- * a list of pending operations, and provides a set of factory methods
- * to create and save AsyncOp operations.
+ * a list of pending operations.
  *
- * Currently, get_block_for_reading should wait for all pending write  ops,
- * and and get_block_for_writing stop and wait for all pending operations to be completed before returning. get_block_for_accumulate,
+ * At the server, get_block_for_reading should wait for all pending write  ops,
+ * and and get_block_for_writing stop and wait for all pending operations
+ * to be completed before returning. get_block_for_accumulate,
  * on the other hand does not wait, but adds its async_op to the list
  * and returns.
  *
@@ -300,28 +142,20 @@ private:
  * Methods in this class are responsible for appropriately maintaining
  * the invariant that num_pending_writes_ is the number of ops in the
  * pending list which may modify the block (i.e. for which is_write()
- * will return true.)
+ * will return true.
  *
- * Each asynchronous operation, OP,  should have an add_OP method in this class which creates
- * an instance of an appropriate subclass of AsyncBase and adds it to the pending list.
  */
-class ServerBlockAsyncManager {
+class BlockAsyncManager {
 public:
-	ServerBlockAsyncManager():
-		num_pending_writes_(0) {
+	BlockAsyncManager():
+		num_pending_writes_(0),
+		num_pending_gets_(0){
 	}
-	~ServerBlockAsyncManager() {
+	~BlockAsyncManager() {
 		check(pending_.empty(), "deleting block with pending async ops");
 	}
 
-	//increments num_pending_writes_
-	void add_put_accumulate_data_request(int mpi_source,
-			int put_accumulate_data_tag, ServerBlock* block, int pc);
-
-	void add_put_data_request(int mpi_source, int put_data_tag,
-			ServerBlock* block, int pc);
-
-	void add_get_reply(int mpi_source, int get_tag, ServerBlock *, int pc);
+	void add_async(AsyncBase* async);
 
 	/**
 	 *
@@ -334,8 +168,8 @@ public:
 	/**
 	 * Attempts to handle all pending items in the list, in order.  If an item is found that
 	 * is not enabled, false is returned. Otherwise, the list will be empty and true is returned.
-	 * On a return value of true, the caller should delete this block from its set of blocks with pending
-	 * items.
+	 * On a return value of true, if the caller is keeping track of blocks with pending ops,
+	 * this block should be deleted from that set.
 	 *
 	 * @return  false if the pending list for the block is not on return empty.
 	 *
@@ -440,8 +274,8 @@ public:
 private:
 	std::list<AsyncBase*> pending_;
 	int num_pending_writes_;
-	DISALLOW_COPY_AND_ASSIGN (ServerBlockAsyncManager);
-
+	int num_pending_gets_; //only useful on worker to avoid duplicate gets.
+	DISALLOW_COPY_AND_ASSIGN (BlockAsyncManager);
 };
 
 } /* namespace sip */

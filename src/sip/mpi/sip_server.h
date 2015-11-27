@@ -19,6 +19,7 @@
 #include "barrier_support.h"
 #include "server_persistent_array_manager.h"
 #include "disk_backed_block_map.h"
+#include "server_async_ops.h"
 //#include "server_timer.h"
 #include "counter.h"
 
@@ -30,7 +31,7 @@ namespace sip {
 std::ostream& operator<<(std::ostream& os, const MPI_Status& obj);
 
 class SIPServer;
-class PutAccumulateDataAsync;
+class ServerPutAccumulateDataAsync;
 
 
 
@@ -67,21 +68,24 @@ public:
 
 	void add_put_data_request(int mpi_source, int put_data_tag, BlockId id, ServerBlock* block, int pc){
 		if (pending_counter_.get_value() > MAX_PENDING) wait_all();
-		block->async_state_.add_put_data_request(mpi_source, put_data_tag, block, pc);
+//		block->async_state_.add_put_data_request(mpi_source, put_data_tag, block, pc);
+		block->async_state_.add_async(new ServerPutDataAsync(mpi_source, put_data_tag, block, pc));
 		pending_.push_back(std::pair<BlockId,ServerBlock*>(id,block));
 		pending_counter_.inc();
 	}
 
 	void add_put_accumulate_data_request(int mpi_source, int put_accumulate_data_tag, BlockId id, ServerBlock* block, int pc){
 		if (pending_counter_.get_value() > MAX_PENDING) wait_all();
-		block->async_state_.add_put_accumulate_data_request(mpi_source, put_accumulate_data_tag, block, pc);
+//		block->async_state_.add_put_accumulate_data_request(mpi_source, put_accumulate_data_tag, block, pc);
+		block->async_state_.add_async(new ServerPutAccumulateDataAsync(mpi_source, put_accumulate_data_tag, block, pc));
 		pending_.push_back(std::pair<BlockId,ServerBlock*>(id,block));
 		pending_counter_.inc();
 	}
 
 	void add_get_reply(int mpi_source, int get_tag, BlockId id, ServerBlock* block, int pc){
 		if (pending_counter_.get_value() > MAX_PENDING) wait_all();
-		block->async_state_.add_get_reply(mpi_source, get_tag, block, pc);
+//		block->async_state_.add_get_reply(mpi_source, get_tag, block, pc);
+		block->async_state_.add_async(new ServerGetAsync(mpi_source, get_tag, block,  pc));
 		pending_.push_back(std::pair<BlockId,ServerBlock*>(id,block));
 		pending_counter_.inc();
 	}
@@ -508,7 +512,7 @@ private:
 
 
     friend ServerPersistentArrayManager;
-    friend PutAccumulateDataAsync;
+    friend ServerPutAccumulateDataAsync;
 
 	DISALLOW_COPY_AND_ASSIGN(SIPServer);
 };
