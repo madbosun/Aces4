@@ -141,8 +141,6 @@
 # Declare scalars
 # ---------------
 #
-      scalar zmax
-      scalar simax
       scalar ccsdpt_energy
       scalar etemp
       scalar xtemp
@@ -325,6 +323,7 @@
 #    ------------------------------------------------------------------------
 #
      server_barrier
+     destroy Vxxxi
 #
 #    ------------------------------------------------------------------------
 #
@@ -379,6 +378,7 @@
 #    ------------------------------------------------------------------------
 #
      server_barrier
+     destroy Vxxai
 #
      ENDPROC TRAN_TRAN3
 #
@@ -2982,11 +2982,6 @@
       create zai 
       create t1as_old 
       sip_barrier 
-
-# Initilize the vaiable to zmax and imax (memory of ERD and OED).
-zmax = 0.0
-simax = 0.0
-execute compute_int_scratchmem oed_ovl zmax simax
 #
 # Read transformed integrals from lists
 # -------------------------------------
