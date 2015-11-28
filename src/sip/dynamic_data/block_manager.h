@@ -45,6 +45,15 @@ public:
 
 	/** basic block retrieval methods.*/
 
+	/**
+	 * Returns true if the indicate block exists
+	 *
+	 * @param id
+	 * @return
+	 */
+	bool has_block(const BlockId& id);
+
+
 	/** Gets requested Block to be written to, allocating it if it doesn't exist.
 	 * Newly allocated blocks ARE NOT initialized to 0.
 	 *
@@ -96,13 +105,9 @@ public:
 	 *
 	 * @param array_id
 	 */
-	void delete_per_array_map_and_blocks(int array_id){
-		block_map_.delete_per_array_map_and_blocks(array_id);
-	}
+	void delete_per_array_map_and_blocks(int array_id);
 
-	std::size_t total_blocks(){
-		return block_map_.total_blocks();
-	}
+	std::size_t total_blocks();
 
 #ifdef HAVE_CUDA
 	// GPU
@@ -172,7 +177,7 @@ private:
 	 * @param BlockId of desired block
 	 * @return pointer to given block, or NULL if it is not in the map.
 	 */
-	Block::BlockPtr block(const BlockId& id);
+	Block::BlockPtr get_block(const BlockId& id);
 
 	/**
 	 * Helper function to insert newly created block into block map.
@@ -263,7 +268,6 @@ private:
 
 
 	friend class SialOpsSequential;
-	friend class SialOpsParallel;
 	friend class ContiguousLocalArrayManager;
 
 	friend void ::list_blocks_with_number();
@@ -273,6 +277,26 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(BlockManager);
 
 };
+
+	inline 	bool BlockManager::has_block(const BlockId& id){
+		return get_block(id) != NULL;
+	}
+
+	inline void BlockManager::enter_scope() {
+		temp_block_list_stack_.push_back(new BlockList);
+	}
+
+	inline Block::BlockPtr BlockManager::get_block(const BlockId& id){
+		return block_map_.block(id);
+	}
+
+	inline void BlockManager::delete_per_array_map_and_blocks(int array_id){
+		block_map_.delete_per_array_map_and_blocks(array_id);
+	}
+
+	inline std::size_t BlockManager::total_blocks(){
+		return block_map_.total_blocks();
+	}
 
 } /* namespace sip */
 

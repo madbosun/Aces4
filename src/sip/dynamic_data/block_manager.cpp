@@ -106,20 +106,23 @@ void BlockManager::deallocate_local(const BlockId& id) {
 //The block is not initialized to zero
 Block::BlockPtr BlockManager::get_block_for_writing(const BlockId& id,
 		bool is_scope_extent) {
-	Block::BlockPtr blk = block(id);
+	Block::BlockPtr block = get_block(id);
 	BlockShape shape = sip_tables_.shape(id);
-	if (blk == NULL) { //need to create it
-		blk = create_block(id, shape);
+	if (block == NULL) { //need to create it
+		block = create_block(id, shape);
 		if (is_scope_extent) {
 			temp_block_list_stack_.back()->push_back(id);
 		}
+		return block;
 	}
-#ifdef HAVE_CUDA
-	// Lazy copying of data from gpu to host if needed.
-	lazy_gpu_write_on_host(blk, id, shape);
-#endif
-	return blk;
+	block->async_state_.wait_all();
+	return block;
 }
+//#ifdef HAVE_CUDA
+//	// Lazy copying of data from gpu to host if needed.
+//	lazy_gpu_write_on_host(blk, id, shape);
+//#endif
+
 
 ////returns a pointer to the requested block, creating it if it doesn't exist.
 ////The block is not initialized to zero
@@ -140,14 +143,15 @@ Block::BlockPtr BlockManager::get_block_for_writing(const BlockId& id,
 
 //TODO TEMPORARY FIX WHILE SEMANTICS BEING WORKED OUT
 Block::BlockPtr BlockManager::get_block_for_reading(const BlockId& id) {
-	Block::BlockPtr blk = block(id);
-	sial_check(blk != NULL, "Attempting to read non-existent block " + id.str(sip_tables_), current_line());
+	Block::BlockPtr block = get_block(id);
+	sial_check(block != NULL, "Attempting to read non-existent block " + id.str(sip_tables_), current_line());
 	////
 	//#ifdef HAVE_CUDA
 	//	// Lazy copying of data from gpu to host if needed.
 	//	lazy_gpu_read_on_host(blk);
 	//#endif //HAVE_CUDA
-    return blk;
+	block->async_state_.wait_for_writes();
+    return block;
 }
 
 
@@ -157,33 +161,35 @@ Block::BlockPtr BlockManager::get_block_for_reading(const BlockId& id) {
 /* gets block for reading and writing.  The block should already exist.*/
 Block::BlockPtr BlockManager::get_block_for_updating(const BlockId& id) {
 //	std::cout << "calling get_block_for_updating for " << id << current_line()<<std::endl << std::flush;
-	Block::BlockPtr blk = block(id);
-	if (blk==NULL){
-		std::cout << *this;
+	Block::BlockPtr block = get_block(id);
+	if (block==NULL){
+		sial_check(false, "Attempting to update non-existent block " + id.str(sip_tables_), current_line());
 	}
-	sial_check(blk != NULL, "Attempting to update non-existent block " + id.str(sip_tables_), current_line());
-#ifdef HAVE_CUDA
-	// Lazy copying of data from gpu to host if needed.
-	lazy_gpu_update_on_host(blk);
-#endif
-	return blk;
+	block->async_state_.wait_all();
+	return block;
 }
+//#ifdef HAVE_CUDA
+//	// Lazy copying of data from gpu to host if needed.
+//	lazy_gpu_update_on_host(blk);
+//#endif
+
+
+
 
 /* gets block, creating it if it doesn't exist.  If new, initializes to zero.*/
 Block::BlockPtr BlockManager::get_block_for_accumulate(const BlockId& id, bool is_scope_extent) {
-	Block::BlockPtr blk = block(id);
-	if (blk == NULL){
-		blk = get_block_for_writing(id, is_scope_extent);
-		blk->fill(0.0);
+	Block::BlockPtr block = get_block(id);
+	if (block == NULL){
+		block = get_block_for_writing(id, is_scope_extent);
+		block->fill(0.0);
+		return block;
 	}
-	return blk;
+	block->async_state_.wait_all();
+	return block;
 
 }
 
-void BlockManager::enter_scope() {
-	BlockList* temps = new BlockList;
-	temp_block_list_stack_.push_back(temps);
-}
+
 
 /*removes the temp blocks in the current scope, then delete the scope's TempBlockStack */
 void BlockManager::leave_scope() {
@@ -227,9 +233,7 @@ std::ostream& operator<<(std::ostream& os, const BlockManager& obj){
 }
 
 
-Block::BlockPtr BlockManager::block(const BlockId& id){
-	return block_map_.block(id);
-}
+
 
 
 /** creates a new block with the given Id and inserts it into the block map.

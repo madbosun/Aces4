@@ -111,7 +111,7 @@ void SialOpsParallel::create_distributed(int array_id, int pc) {
 void SialOpsParallel::delete_distributed(int array_id, int pc) {
 
 	//delete any blocks stored locally along with the map
-	block_manager_.block_map_.delete_per_array_map_and_blocks(array_id);
+	block_manager_.delete_per_array_map_and_blocks(array_id);
 
 	//send delete message to server if responsible worker
 	const std::vector<int>& server_ranks = sip_mpi_attr_.my_servers();
@@ -134,10 +134,11 @@ void SialOpsParallel::get(BlockId& block_id, int pc) {
 	//check for "data race"
 	check_and_set_mode(block_id, READ);
 
-	//if block already exists, it either has valid data at the worker or a pending get request, just return
-	Block::BlockPtr block = block_manager_.block(block_id);
-	if (block != NULL)
-		return;
+	//If block already exists, it either has valid data at the worker (somewhere)
+	// or a pending get request, just return.
+	//Note that this direct call bypasses checking for
+    if( block_manager_.has_block(block_id))
+    	return;
 
 	//post receive
 	int server_rank = data_distribution_.get_server_rank(block_id);
@@ -150,7 +151,7 @@ void SialOpsParallel::get(BlockId& block_id, int pc) {
     		<< " to server "<< server_rank << std::endl);
 
 	//create block
-	block = block_manager_.get_block_for_writing(block_id, true);
+	Block::BlockPtr block = block_manager_.get_block_for_writing(block_id, true);
 
 	//post an asynchronous receive and store the request in the
 	//block's state.
@@ -687,7 +688,10 @@ Block::BlockPtr SialOpsParallel::get_block_for_reading(const BlockId& id, int pc
 		check_and_set_mode(array_id, READ);
 
 	}
-	return wait_and_check_for_reading(block_manager_.get_block_for_reading(id), pc);
+	wait_time_.start(pc);
+	Block::BlockPtr block = block_manager_.get_block_for_reading(id);
+	wait_time_.pause(pc);
+	return block;
 }
 
 Block::BlockPtr SialOpsParallel::get_block_for_writing(const BlockId& id,
@@ -697,33 +701,39 @@ Block::BlockPtr SialOpsParallel::get_block_for_writing(const BlockId& id,
 			|| sip_tables_.is_served(array_id)) {
 		check_and_set_mode(array_id, WRITE);
 	}
-	return wait_and_check(block_manager_.get_block_for_writing(id, is_scope_extent),pc);
-
+	wait_time_.start(pc);
+	Block::BlockPtr block = block_manager_.get_block_for_writing(id);
+	wait_time_.pause(pc);
+	return block;
 }
 
 Block::BlockPtr SialOpsParallel::get_block_for_updating(const BlockId& id, int pc) {
-	int array_id = id.array_id();
-	return wait_and_check(block_manager_.get_block_for_updating(id), pc);
-}
-
-
-//The MPI_State does not store whether or not the request object was created as a result of
-// an Isend (put) or IReceive (get).  Checking the size only make sense for the latter.
-//For the time being, we will just call the version of wait that does not  check the size.
-//If asynch puts turn out to be useful, we can revisit this.
-Block::BlockPtr SialOpsParallel::wait_and_check(Block::BlockPtr b, int pc) {
+    //TODO  not doing anything with the mode for this one.  Double check this.
+	//It is possible that this is only called for local and distributed arrays.
 	wait_time_.start(pc);
-	b->async_state_.wait_all();
+	Block::BlockPtr block = block_manager_.get_block_for_updating(id);
 	wait_time_.pause(pc);
-	return b;
+	return block;
 }
 
-Block::BlockPtr SialOpsParallel::wait_and_check_for_reading(Block::BlockPtr b, int pc) {
-	wait_time_.start(pc);
-	b->async_state_.wait_for_writes();
-	wait_time_.pause(pc);
-	return b;
-}
+
+////The MPI_State does not store whether or not the request object was created as a result of
+//// an Isend (put) or IReceive (get).  Checking the size only make sense for the latter.
+////For the time being, we will just call the version of wait that does not  check the size.
+////If asynch puts turn out to be useful, we can revisit this.
+//Block::BlockPtr SialOpsParallel::wait_and_check(Block::BlockPtr b, int pc) {
+//	wait_time_.start(pc);
+//	b->async_state_.wait_all();
+//	wait_time_.pause(pc);
+//	return b;
+//}
+//
+//Block::BlockPtr SialOpsParallel::wait_and_check_for_reading(Block::BlockPtr b, int pc) {
+//	wait_time_.start(pc);
+//	b->async_state_.wait_for_writes();
+//	wait_time_.pause(pc);
+//	return b;
+//}
 /*
     //TODO change line to pc
 	struct Put_scalar_op_message_t{

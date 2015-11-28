@@ -212,6 +212,7 @@ private:
 								// scalars can be set to NULL before destroying them.
 	friend class SialOpsParallel; //to allow access to async_ops_
 	friend class CachedBlockMap; //to allow access to AsyncOps wait and test methods
+	friend class BlockManager;
 	DISALLOW_COPY_AND_ASSIGN(Block);
 };
 

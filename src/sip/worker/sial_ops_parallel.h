@@ -157,28 +157,28 @@ private:
 	 */
 	void check_double_count(MPI_Status& status, int expected_count);
 
-	/**
-	 * If there are pending async ops for block b, wait for them
-	 * to be satisfied.  Otherwise, return immediately.
-	 *
-	 * Requires b != NULL
-	 * @param b
-	 * @param pc  current index in optable. Used to index the wait_time_ timer list.
-	 * @return  the input parameter--for convenience
-	 */
-	Block::BlockPtr wait_and_check(Block::BlockPtr b, int pc);
-
-
-	/**
-	 * If there are pending write requests for block b, wait for them
-	 * to be satisfied.  Otherwise, return immediately.
-	 *
-	 * Requires b != NULL
-	 * @param b
-	 * @param pc  current index in optable. Used to index the wait_time_ timer list.
-	 * @return  the input parameter--for convenience
-	 */
-	Block::BlockPtr wait_and_check_for_reading(Block::BlockPtr b, int pc);
+//	/**
+//	 * If there are pending async ops for block b, wait for them
+//	 * to be satisfied.  Otherwise, return immediately.
+//	 *
+//	 * Requires b != NULL
+//	 * @param b
+//	 * @param pc  current index in optable. Used to index the wait_time_ timer list.
+//	 * @return  the input parameter--for convenience
+//	 */
+//	Block::BlockPtr wait_and_check(Block::BlockPtr b, int pc);
+//
+//
+//	/**
+//	 * If there are pending write requests for block b, wait for them
+//	 * to be satisfied.  Otherwise, return immediately.
+//	 *
+//	 * Requires b != NULL
+//	 * @param b
+//	 * @param pc  current index in optable. Used to index the wait_time_ timer list.
+//	 * @return  the input parameter--for convenience
+//	 */
+//	Block::BlockPtr wait_and_check_for_reading(Block::BlockPtr b, int pc);
 	/**
 	 * returns true if the mode associated with an array is compatible with
 	 * the given mode.  Updates the array's mode. write-write conflicts are
