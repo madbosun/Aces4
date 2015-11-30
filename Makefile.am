@@ -48,7 +48,9 @@ ACES_CORE_FILES=\
 ./src/sip/core/aces_log.h\
 ./src/sip/core/aces_log.cpp\
 ./src/sip/core/job_control.h\
-./src/sip/core/job_control.cpp
+./src/sip/core/job_control.cpp\
+./src/sip/mpi/async_ops.h\
+./src/sip/mpi/async_ops.cpp
 
 
 
@@ -109,6 +111,8 @@ ACES_SOURCEFILES=\
 ./src/sip/worker/sial_math.cpp\
 ./src/sip/worker/tracer.h\
 ./src/sip/worker/tracer.cpp\
+./src/sip/worker/worker_async_ops.h\
+./src/sip/worker/worker_async_ops.cpp\
 ./src/sip/sip_interface.h\
 ./src/sip/sip_interface.cpp\
 ./src/sip/tensor_algebra/tensor_ops_c_prototypes.h\
@@ -146,8 +150,8 @@ ACES_SOURCEFILES +=\
 ./src/sip/dynamic_data/mpi_state.h\
 ./src/sip/dynamic_data/distributed_block_consistency.cpp\
 ./src/sip/dynamic_data/distributed_block_consistency.h\
-./src/sip/mpi/async_ops.cpp\
-./src/sip/mpi/async_ops.h\
+./src/sip/mpi/server_async_ops.cpp\
+./src/sip/mpi/server_async_ops.h\
 ./src/sip/mpi/counter.cpp\
 ./src/sip/mpi/array_file.h\
 ./src/sip/mpi/array_file.cpp\

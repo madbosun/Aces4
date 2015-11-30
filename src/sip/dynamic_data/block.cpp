@@ -79,10 +79,11 @@ Block::Block(dataPtr data):
 Block::~Block() {
 	SIP_LOG(sip::check_and_warn((data_), std::string("in ~Block with NULL data_")));
 
-#ifdef HAVE_MPI
+//#ifdef HAVE_MPI
 	//ensure that pending communications using this block are complete
-	wait();
-#endif //HAVE_MPI
+//	wait();
+//#endif //HAVE_MPI
+        async_state_.wait_all();
 
 	// Original Assumption was that all blocks of size 1 are scalar blocks.
 	// This didn't turn out to be true (sliced contiguous array blocks could also be size 1).
