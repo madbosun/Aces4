@@ -1229,7 +1229,6 @@ call update_LB2aa
 
 call update_RB2ab
 call update_LB2ab
-
 server_barrier
 sum1 = 0.0
 pardo a,i,kstate
@@ -2958,28 +2957,28 @@ endif
 if logright == zero
 # place left eom vector in
     pardo i,a
-        request LB1_a[kstate,a,i]
+        request RB1_a[kstate,a,i]
 	Tk[kstate] = 1.0
-	Tia[i,a] = Tk[kstate]*LB1_a[kstate,a,i]
+	Tia[i,a] = Tk[kstate]*RB1_a[kstate,a,i]
 	put L1A[i,a] = Tia[i,a]
 	put L1B[i,a] = Tia[i,a]
     endpardo i,a
     pardo i,a,b,j
-        request LB2_ab[kstate,a,i,b,j]
+        request RB2_ab[kstate,a,i,b,j]
 	Tk[kstate] = 1.0
-	Tiajb[i,a,j,b] = Tk[kstate]*Lb2_ab[kstate,a,i,b,j]
+	Tiajb[i,a,j,b] = Tk[kstate]*RB2_ab[kstate,a,i,b,j]
 	prepare L2AB[i,a,j,b] = Tiajb[i,a,j,b]
     endpardo i,a,b,j
     pardo i,a,i1,a1
-        request LB2_aa[kstate,a,i,a1,i1]
+        request RB2_aa[kstate,a,i,a1,i1]
 	Tk[kstate] = 1.0
-	Tiaia[i,a,i1,a1] = Tk[kstate]*LB2_aa[kstate,a,i,a1,i1]
+	Tiaia[i,a,i1,a1] = Tk[kstate]*RB2_aa[kstate,a,i,a1,i1]
 	prepare L2AA[i,a,i1,a1] = Tiaia[i,a,i1,a1]
     endpardo i,a,i1,a1
     pardo j,b,j1,b1
-        request LB2_aa[kstate,b,j,b1,j1]
+        request RB2_aa[kstate,b,j,b1,j1]
 	Tk[kstate] = 1.0
-	Tjbjb[j,b,j1,b1] = Tk[kstate]*LB2_aa[kstate,b,j,b1,j1]
+	Tjbjb[j,b,j1,b1] = Tk[kstate]*RB2_aa[kstate,b,j,b1,j1]
 	prepare L2BB[j,b,j1,b1] = Tjbjb[j,b,j1,b1]
     endpardo j,b,j1,b1
 endif
@@ -3218,7 +3217,8 @@ imax = 0.0
 execute compute_int_scratchmem oed_ovl zmax imax
 
 print " "
-print "-- Parallel left-right EE-EOM-CCSD program"
+#print "-- Parallel left-right EE-EOM-CCSD program"
+print "-- Parallel right EE-EOM-CCSD program"
 print "-- J. Comp. Phys. 1992, 103, 382-389 | J Chem Phys 2009, 130, 124122."
 print "-- Subspace collapse non-symmetric davidson update"
 print "-- J. Comp. Chem. 2001, 22, 1574-1589"
@@ -3281,6 +3281,84 @@ print "EOM-CCSD has converged"
 #    deallocate contiguous EOM_EE_Energy[kstate:kstate]
 #enddo kstate
 
+do ksub
+    print ksub
+    sum1 = 0.0
+    sum2 = 0.0
+    sum3 = 0.0
+    server_barrier
+    pardo a,i
+       request RB1_a[ksub,a,i]
+       Tkai[ksub,a,i] = RB1_a[ksub,a,i]
+       normT  = Tkai[ksub,a,i]*RB1_a[ksub,a,i]
+       sum1 += normT
+    endpardo a,i
+    pardo a,i,a1,i1
+       request RB2_aa[ksub,a,i,a1,i1]
+       Tkaiai[ksub,a,i,a1,i1] = RB2_aa[ksub,a,i,a1,i1]
+       normT  = Tkaiai[ksub,a,i,a1,i1]*RB2_aa[ksub,a,i,a1,i1]
+       normT *= 0.5
+       sum2 += normT
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+       request RB2_ab[ksub,a,i,b,j]
+       Tkaibj[ksub,a,i,b,j] = RB2_ab[ksub,a,i,b,j]
+       normT  = Tkaibj[ksub,a,i,b,j]*RB2_ab[ksub,a,i,b,j]
+       sum3 += normT
+    endpardo a,i,b,j
+    server_barrier
+    normS1 = 0.0
+    normS2aa = 0.0
+    normS2ab = 0.0
+    collective normS1 += sum1
+    collective normS2aa += sum2
+    collective normS2ab += sum3
+    server_barrier
+    print "right"
+    print normS1
+    print normS2aa
+    print normS2ab
+    server_barrier
+    sum1 = 0.0
+    sum2 = 0.0
+    sum3 = 0.0
+    server_barrier
+    pardo a,i
+       request LB1_a[ksub,a,i]
+       Tkai[ksub,a,i] = LB1_a[ksub,a,i]
+       normT  = Tkai[ksub,a,i]*LB1_a[ksub,a,i]
+       sum1 += normT
+    endpardo a,i
+    pardo a,i,a1,i1
+       request LB2_aa[ksub,a,i,a1,i1]
+       Tkaiai[ksub,a,i,a1,i1] = LB2_aa[ksub,a,i,a1,i1]
+       normT  = Tkaiai[ksub,a,i,a1,i1]*LB2_aa[ksub,a,i,a1,i1]
+       normT *= 0.5
+       sum2 += normT
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+       request LB2_ab[ksub,a,i,b,j]
+       Tkaibj[ksub,a,i,b,j] = LB2_ab[ksub,a,i,b,j]
+       normT  = Tkaibj[ksub,a,i,b,j]*LB2_ab[ksub,a,i,b,j]
+       sum3 += normT
+    endpardo a,i,b,j
+    server_barrier
+    normS1 = 0.0
+    normS2aa = 0.0
+    normS2ab = 0.0
+    collective normS1 += sum1
+    collective normS2aa += sum2
+    collective normS2ab += sum3
+    server_barrier
+    print "right"
+    print normS1
+    print normS2aa
+    print normS2ab
+    server_barrier
+enddo ksub
+
 # -----------------
 # props
 # -----------------
@@ -3333,6 +3411,7 @@ do kstate
     call back_transform_dipole
 #    print Ldipole
 
+    print "*** L = R^\dag approximation used ***"
     dsum = 0.0
     do ixyz
 	sum1 = RDipole[ixyz]
