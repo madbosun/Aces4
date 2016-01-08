@@ -446,7 +446,7 @@ if myrank == root
     do kstate
 	SEk0[kstate] = SEk[kstate]
     enddo kstate
-    print "-- EOM-CCPT(2) excited state energies --"
+    print "-- EOM-linCC excited state energies --"
 
     do kstate
 	allocate contiguous EOM_EE_Energy[kstate:kstate]
@@ -3225,14 +3225,16 @@ root = 0
 subspc = eom_subspc
 roots = eom_roots
 
+is_ccpt = 0.0
+
 # Initilize the vaiable to zmax and imax (memory of ERD and OED).
 zmax = 0.0
 imax = 0.0
 execute compute_int_scratchmem oed_ovl zmax imax
 
 print " "
-#print "-- Parallel left-right EE-EOM-CCPT(2) program"
-print "-- Parallel right EE-EOM-CCPT(2) program"
+#print "-- Parallel left-right EE-EOM-linCC program"
+print "-- Parallel right EE-EOM-linCC program"
 print "-- J. Comp. Chem. 143, 164103 (2015)"
 print "-- Subspace collapse non-symmetric davidson update"
 print "-- J. Comp. Chem. 2001, 22, 1574-1589"
@@ -3287,7 +3289,7 @@ do kiter
 enddo kiter
 
 print " "
-print "EOM-CCPT has converged"
+print "EOM-linCC has converged"
 #print "FINAL excitation energies"
 #do kstate
 #    allocate contiguous EOM_EE_Energy[kstate:kstate]

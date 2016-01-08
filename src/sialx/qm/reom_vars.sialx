@@ -283,6 +283,9 @@ served R2BB[a,i,a1,i1]
 served L2AA[i,a,i1,a1]
 served L2AB[i,a,j,b]
 served L2BB[i,a,i1,a1]
+served t1a_new[a,i]
+served t1a_old[a,i]
+served Mck_a[a,i]
 #
 # Declare local 
 # --------------- 
@@ -726,5 +729,7 @@ scalar overlapS
 scalar overlap1
 scalar overlap2
 scalar rmsconv
+scalar second_order_singles
+scalar norm
 
 endsial eom_vars
