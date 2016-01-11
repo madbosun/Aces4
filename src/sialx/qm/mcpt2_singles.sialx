@@ -329,6 +329,25 @@ SIAL mcpt2_singles
       ENDDO ifrag 
       endif
 
+      sip_barrier
+
+print "placing wC into diagonal fock matrix"
+      do p
+	  t3[p] = 0.0
+      do p1
+      where p==p1
+	  get wC[p,p1]
+	  Tpp[p,p1] = wC[p,p1]
+	  execute return_diagonal Tpp[p,p1] etemp
+	  Sx3[p1] = 1.0
+	  t3_1[p] = Tpp[p,p1]*Sx3[p1]
+	  t3[p] += t3_1[p]
+      enddo p1
+      fock_a[p] += t3[p]
+      enddo p
+
+      sip_barrier
+
       ENDPROC FORM_T10
 #
 # -----------------------------------------------------------------------------
@@ -375,6 +394,30 @@ SIAL mcpt2_singles
 
                GET        wC[a,i] 
                tai[a,i] = wC[a,i] 
+
+	       do a1
+	       where (int)SwVirtA_frag[(index)a1] == ifrag
+	       
+	           get t1old[a1,i]
+	           get wC[a,a1]
+		   Tpp[a,a1] = wC[a,a1]
+		   execute remove_diagonal Tpp[a,a1]
+		   T1ai[a,i] = Tpp[a,a1]*t1old[a1,i]
+		   tai[a,i] += T1ai[a,i]
+	       enddo a1
+
+	       do i1
+	       where (int)SwOccA_frag[(index)i1] == ifrag
+
+	           get t1old[a,i1]
+		   get wC[i,i1]
+		   Tpp[i,i1] = wC[i,i1]
+		   execute remove_diagonal Tpp[i,i1]
+		   T1ai[a,i]  = Tpp[i,i1]*t1old[a,i1]
+		   T1ai[a,i] *= -1.0
+		   tai[a,i]  += T1ai[a,i]
+	       enddo i1
+
                PUT x1new[a,i] += tai[a,i] 
 
 	 ENDIF
@@ -690,6 +733,14 @@ SIAL mcpt2_singles
       ENDDO ifrag 
       endif
 
+    PARDO ifrag, a, i "Frag{i}{vo}{}"
+    where (int)SwVirtA_frag[(index)a] == ifrag
+    where (int)SwOccA_frag[(index)i] == ifrag
+
+	    PUT p2t1new[a,i] = 0.0
+
+    ENDPARDO ifrag, a, i
+
     server_barrier
     ENDPROC form_t1_secondorder_guess
 
@@ -705,6 +756,8 @@ SIAL mcpt2_singles
     server_barrier
 
     PARDO ifrag, a, i "Frag{i}{vo}{}"
+    where (int)SwVirtA_frag[(index)a] == ifrag
+    where (int)SwOccA_frag[(index)i] == ifrag
 
 	GET     e3m1_error[ifrag] 
 	etemp = e3m1_error[ifrag] 
@@ -735,7 +788,31 @@ SIAL mcpt2_singles
 	IF etemp > cc_conv 
 
 	    GET        Mck_a[a,i] 
-	    tai[a,i] = Mck_a[a,i] 
+               tai[a,i] = wC[a,i] 
+
+	       do a1
+	       where (int)SwVirtA_frag[(index)a1] == ifrag
+	       
+	           get t1old[a1,i]
+	           get wC[a,a1]
+		   Tpp[a,a1] = wC[a,a1]
+		   execute remove_diagonal Tpp[a,a1]
+		   T1ai[a,i] = Tpp[a,a1]*t1old[a1,i]
+		   tai[a,i] += T1ai[a,i]
+	       enddo a1
+
+	       do i1
+	       where (int)SwOccA_frag[(index)i1] == ifrag
+
+	           get t1old[a,i1]
+		   get wC[i,i1]
+		   Tpp[i,i1] = wC[i,i1]
+		   execute remove_diagonal Tpp[i,i1]
+		   T1ai[a,i]  = Tpp[i,i1]*t1old[a,i1]
+		   T1ai[a,i] *= -1.0
+		   tai[a,i]  += T1ai[a,i]
+	       enddo i1
+
 	    PUT p2t1new[a,i] += tai[a,i] 
 
 	ENDIF
