@@ -326,7 +326,9 @@ SIAL mcpt2_doubles
 	         get T2old[a,i,a2,i1]
 		 get wC[a1,a2]
 		 Tpp[a1,a2] = wC[a1,a2]
-		 execute remove_diagonal Tpp[a1,a2]
+		 if a1==a2
+		     execute remove_diagonal Tpp[a1,a2]
+		 endif
 		 t1ppqq[a,i,a1,i1]  = Tpp[a1,a2]*T2old[a,i,a2,i1]
 		 xaiai[a,i,a1,i1]  += t1ppqq[a,i,a1,i1] 
 	     enddo a2
@@ -336,7 +338,9 @@ SIAL mcpt2_doubles
 	         get T2old[a,i,a1,i2]
 		 get wC[i1,i2]
 		 Tpp[i1,i2] = wC[i1,i2]
-		 execute remove_diagonal Tpp[i1,i2]
+		 if i1==i2
+		     execute remove_diagonal Tpp[i1,i2]
+		 endif 
 		 t1ppqq[a,i,a1,i1]  = Tpp[i1,i2]*T2old[a,i,a1,i2]
                  t1ppqq[a,i,a1,i1] *= -1.0
 		 xaiai[a,i,a1,i1]  += t1ppqq[a,i,a1,i1]
@@ -836,7 +840,9 @@ SIAL mcpt2_doubles
 	         get T2old[a2,i,a1,i1]
 		 get wC[a,a2]
 		 Tpp[a,a2] = wC[a,a2]
-		 execute remove_diagonal Tpp[a,a2]
+		 if a==a2
+		     execute remove_diagonal Tpp[a,a2]
+		 endif
 		 t1ppqq[a,i,a1,i1]  = Tpp[a,a2]*T2old[a2,i,a1,i1]
 		 xaiai[a,i,a1,i1]  += t1ppqq[a,i,a1,i1] 
 	     enddo a2
@@ -846,7 +852,9 @@ SIAL mcpt2_doubles
 	         get T2old[a,i2,a1,i1]
 		 get wC[i,i2]
 		 Tpp[i,i2] = wC[i,i2]
-		 execute remove_diagonal Tpp[i,i2]
+		 if i==i2
+		     execute remove_diagonal Tpp[i,i2]
+		 endif
 		 t1ppqq[a,i,a1,i1]  = Tpp[i,i2]*T2old[a,i2,a1,i1]
                  t1ppqq[a,i,a1,i1] *= -1.0
 		 xaiai[a,i,a1,i1]  += t1ppqq[a,i,a1,i1]
@@ -857,7 +865,9 @@ SIAL mcpt2_doubles
 	         get T2old[a,i,a2,i1]
 		 get wC[a1,a2]
 		 Tpp[a1,a2] = wC[a1,a2]
-		 execute remove_diagonal Tpp[a1,a2]
+		 if a1==a2
+		     execute remove_diagonal Tpp[a1,a2]
+		 endif
 		 t1ppqq[a,i,a1,i1]  = Tpp[a1,a2]*T2old[a,i,a2,i1]
 		 xaiai[a,i,a1,i1]  += t1ppqq[a,i,a1,i1] 
 	     enddo a2
@@ -867,7 +877,9 @@ SIAL mcpt2_doubles
 	         get T2old[a,i,a1,i2]
 		 get wC[i1,i2]
 		 Tpp[i1,i2] = wC[i1,i2]
-		 execute remove_diagonal Tpp[i1,i2]
+		 if i1==i2
+		     execute remove_diagonal Tpp[i1,i2]
+		 endif
 		 t1ppqq[a,i,a1,i1]  = Tpp[i1,i2]*T2old[a,i,a1,i2]
                  t1ppqq[a,i,a1,i1] *= -1.0
 		 xaiai[a,i,a1,i1]  += t1ppqq[a,i,a1,i1]
