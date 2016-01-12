@@ -28,6 +28,9 @@ predefined  int frag1_eaocc
 predefined  int frag1_eavirt
 predefined  int frag1_norb
 
+predefined int eom_roots
+predefined int eom_subspc
+
 moaindex aces_defs_pa = baocc: eavirt  
 moaindex aces_defs_pb = bbocc: ebvirt   
 aoindex aces_defs_mu = 1: norb  

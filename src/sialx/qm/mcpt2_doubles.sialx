@@ -305,6 +305,9 @@ SIAL mcpt2_doubles
       ENDPARDO ifrag, mu, nu, i, i1
 
       sip_barrier
+
+      if do_nonhf == 1
+
       PARDO ifrag, a, i, a1, i1 "Frag{i}{vovo}{}"
 	  where (int)SwVirtA_frag[(index)a] == ifrag
 	  where (int)SwOccA_frag[(index)i] == ifrag
@@ -354,6 +357,8 @@ SIAL mcpt2_doubles
 
       ENDIF #etemp > c_conv
       ENDPARDO ifrag, a, i, a1, i1
+
+      endif
 
 # Form backtransformed amplitudes 
       PARDO ifrag, mu, i, a, j "Frag{i}{aovo}{}"
@@ -817,6 +822,8 @@ SIAL mcpt2_doubles
 
       server_barrier
 
+      if do_nonhf == 1
+
       PARDO ifrag, jfrag, a, i, a1, i1 "Frag{NRij}{vo}{vo}"
       where ifrag != jfrag
       where (int)rcut_dist[ifrag,jfrag] == ifrag
@@ -892,6 +899,8 @@ SIAL mcpt2_doubles
 
       ENDIF
       ENDPARDO ifrag, jfrag, a, i, a1, i1
+
+      endif
 
 # Form backtransformed amplitudes 
       PARDO ifrag, jfrag, a, i, mu, j "Frag{NRij}{vo}{ao}"

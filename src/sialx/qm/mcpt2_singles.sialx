@@ -331,6 +331,7 @@ SIAL mcpt2_singles
 
       sip_barrier
 
+if do_nonhf == 1
 print "placing wC into diagonal fock matrix"
       do p
 	  t3[p] = 0.0
@@ -345,6 +346,7 @@ print "placing wC into diagonal fock matrix"
       enddo p1
       fock_a[p] += t3[p]
       enddo p
+endif
 
       sip_barrier
 
@@ -395,6 +397,7 @@ print "placing wC into diagonal fock matrix"
                GET        wC[a,i] 
                tai[a,i] = wC[a,i] 
 
+               if do_nonhf == 1
 	       do a1
 	       where (int)SwVirtA_frag[(index)a1] == ifrag
 	       
@@ -421,6 +424,8 @@ print "placing wC into diagonal fock matrix"
 		   T1ai[a,i] *= -1.0
 		   tai[a,i]  += T1ai[a,i]
 	       enddo i1
+
+	       endif
 
                PUT x1new[a,i] += tai[a,i] 
 
@@ -776,6 +781,8 @@ print "placing wC into diagonal fock matrix"
     ENDPARDO ifrag, a, i
 
     server_barrier
+
+    if do_nonhf == 1
 #
 # Mck term
 #
@@ -825,6 +832,7 @@ print "placing wC into diagonal fock matrix"
 
 	ENDIF
     ENDPARDO ifrag, a, i
+    endif
 #
 # monomer ring term
 #
@@ -883,7 +891,6 @@ print "placing wC into diagonal fock matrix"
 
 	IF etemp > cc_conv 
 
-	    t1ai[a,i] = 0.0 
 
 	    GET Viabj[i,a,a1,i1]  
 	    GET p2t1old[a1,i1] 
@@ -891,9 +898,8 @@ print "placing wC into diagonal fock matrix"
 	    tppqq[i,a,a1,i1]  = Viabj[i,a,a1,i1] 
 	    tppqq[i,a,a1,i1] *= 2.0  
 	    tai[a,i] = tppqq[i,a,a1,i1]*p2t1old[a1,i1]
-	    t1ai[a,i] += tai[a,i] 
 
-	    PUT p2t1new[a,i] += t1ai[a,i] 
+	    PUT p2t1new[a,i] += tai[a,i] 
 
 	ENDIF # etemp > cc_conv 
 
