@@ -376,7 +376,8 @@ print " "
       restore_persistent Dca "ca" 
       restore_persistent DFock_a "fock_a"
       rmaster = 0
-      do_nonhf = 1
+      #do_nonhf = 1
+      do_nonhf = 0
       allocate sp[*] 
       zero = 0.0 
       one  = 1.0 
