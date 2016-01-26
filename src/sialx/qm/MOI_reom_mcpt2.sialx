@@ -54,15 +54,9 @@ do a
         get DFock_a[a,a1]
 	get FwC[a,a1]
 	Taa[a,a1]  = FwC[a,a1]
-#	execute remove_diagonal Taa[a,a1]
-#	Taa[a,a1] *= -1.0
-#	Taa[a,a1] += FwC[a,a1]
 
         Fock_a[a,a1]  = DFock_a[a,a1]
-#        Fock_a[a,a1] += Taa[a,a1]
-
-	SFock_a[a,a1] = DFock_a[a,a1]
-
+        Fock_a[a,a1] += Taa[a,a1]
     enddo a1
     do i1
         allocate Fock_a[a,i1]
@@ -70,9 +64,6 @@ do a
 	get FwC[a,i1]
 
         Fock_a[a,i1]  = DFock_a[a,i1]
-#        Fock_a[a,i1] += FwC[a,i1]
-
-	SFock_a[a,i1] = DFock_a[a,i1]
     enddo i1
 enddo a
 do i
@@ -82,12 +73,9 @@ do i
 	get FwC[i,a1]
 
 	Tqq[i,a1] = FwC[i,a1]
-	Tqq[i,a1] *= -1.0
 
         Fock_a[i,a1]  = DFock_a[i,a1]
         Fock_a[i,a1] += Tqq[i,a1]
-
-	SFock_a[i,a1] = DFock_a[i,a1]
     enddo a1
     do i1
         allocate Fock_a[i,i1]
@@ -95,15 +83,9 @@ do i
 	get FwC[i,i1]
 
 	Tii1[i,i1]  = FwC[i,i1]
-#	execute remove_diagonal Tii1[i,i1]
-#	Tii1[i,i1] *= -1.0
-#	Tii1[i,i1] += FwC[i,i1]
 
         Fock_a[i,i1]  = DFock_a[i,i1]
-#        Fock_a[i,i1] += Tii1[i,i1]
-
-	SFock_a[i,i1] = DFock_a[i,i1]
-
+        Fock_a[i,i1] += Tii1[i,i1]
     enddo i1
 enddo i
 do mu
@@ -159,8 +141,8 @@ if myrank == root
     do i
         get t1a[a,i]
         Tai[a,i] = t1a[a,i]
-        St1a[a,i] = 0.0 #t1a[a,i]
-        St1b[a,i] = 0.0 #t1a[a,i]
+        St1a[a,i] = t1a[a,i]
+        St1b[a,i] = t1a[a,i]
         put t1b[a,i] = Tai[a,i]
     enddo i
     enddo a

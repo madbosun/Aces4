@@ -424,7 +424,6 @@ endif
 		   T1ai[a,i] *= -1.0
 		   tai[a,i]  += T1ai[a,i]
 	       enddo i1
-
 	       endif
 
                PUT x1new[a,i] += tai[a,i] 
