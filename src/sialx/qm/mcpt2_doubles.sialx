@@ -1783,11 +1783,13 @@ SIAL mcpt2_doubles
       execute get_my_rank rank
       if rank == 0.0
       do ifrag
+	allocate contiguous monomer_lccd[ifrag:ifrag]
          GET                        e20c[ifrag] 
          monomer_lccd[ifrag:ifrag] = e20c[ifrag]  
 	 print monomer_lccd[ifrag:ifrag]
          etemp = e20c[ifrag] 
          esum -= etemp 
+	deallocate contiguous monomer_lccd[ifrag:ifrag]
       enddo ifrag
       endif
       sip_barrier
@@ -1809,22 +1811,6 @@ SIAL mcpt2_doubles
       sip_barrier 
       print "Done forming T2_0guess" 
 
-# allocate energy arrays all at once.
-     execute get_my_rank rank
-     if rank == 0.0
-     DO ifrag
-	allocate contiguous macro_e20[ifrag:ifrag]
-	allocate contiguous monomer_lccd[ifrag:ifrag]
-     ENDDO ifrag   
-     do ifrag
-     do jfrag
-     WHERE jfrag > ifrag 
-     where (int)rcut_dist[ifrag,jfrag] == ifrag
-	 allocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
-     enddo jfrag
-     enddo ifrag
-     endif
-      sip_barrier 
 #
 # Start macro-iterations 
       DO jiter 
@@ -1859,11 +1845,13 @@ SIAL mcpt2_doubles
          print "MCPT(2) monomer macro-iteration energies"
 	 fragment_doubles = 0.0
          DO ifrag
+	    allocate contiguous macro_e20[ifrag:ifrag]
             GET                 e20c[ifrag] 
             macro_e20[ifrag:ifrag]  = e20c[ifrag] 
             print macro_e20[ifrag:ifrag] 
             etemp = e20c[ifrag] 
             fragment_doubles += etemp 
+	    deallocate contiguous macro_e20[ifrag:ifrag]
          ENDDO ifrag   
 
 	 print " "
@@ -1872,9 +1860,11 @@ SIAL mcpt2_doubles
 	 do jfrag
 	 WHERE jfrag > ifrag 
 	 where (int)rcut_dist[ifrag,jfrag] == ifrag
+	         allocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
 		 get d20c[ifrag,jfrag]
 		 macro_d20[ifrag:ifrag,jfrag:jfrag] = d20c[ifrag,jfrag]
 		 print macro_d20[ifrag:ifrag,jfrag:jfrag]
+	         deallocate contiguous macro_d20[ifrag:ifrag,jfrag:jfrag]
 	 enddo jfrag
 	 enddo ifrag
          endif

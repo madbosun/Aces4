@@ -491,6 +491,8 @@ private:
 	friend class Fragment_Nij_o_o_PardoLoopManager;
 	friend class Fragment_i_aa__PardoLoopManager;
 	friend class Fragment_i_vo__PardoLoopManager;
+	friend class Fragment_i_vv__PardoLoopManager;
+	friend class Fragment_i_oo__PardoLoopManager;
 	friend class Fragment_i_vovo__PardoLoopManager;
 	friend class Fragment_i_aaoo__PardoLoopManager;
 	friend class Fragment_i_aovo__PardoLoopManager;

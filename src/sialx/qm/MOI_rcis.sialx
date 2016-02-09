@@ -154,6 +154,12 @@ do a
 	get FwC[a,a1]
 	Taa[a,a1]  = FwC[a,a1]
 
+        if a==a1
+	T1aa[a,a1] = 0.014699
+	execute return_diagonal_elements T1aa[a,a1]
+	Taa[a,a1] += T1aa[a,a1]
+	endif
+
         Fock_a[a,a1]  = DFock_a[a,a1]
         Fock_a[a,a1] += Taa[a,a1]
     enddo a1
@@ -218,6 +224,7 @@ if rank == 0.0
 	enddo i
     enddo a
 #
+    print SHDiag
     execute cis_unit_guess C1_a SHDiag
 #
     do ksub

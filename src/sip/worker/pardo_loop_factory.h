@@ -78,6 +78,8 @@ public:
 		Fragment_ij_aoo_o_PardoLoopManager,
 		Fragment_ij_vo_vo_PardoLoopManager,
 		Fragment_i_vo__PardoLoopManager,
+		Fragment_i_vv__PardoLoopManager,
+		Fragment_i_oo__PardoLoopManager,
 		Fragment_i_vovo__PardoLoopManager,
 		Fragment_i_aaoo__PardoLoopManager,
 		Fragment_i_aovo__PardoLoopManager,
