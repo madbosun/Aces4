@@ -654,6 +654,7 @@ set(SIAL_FILES
     src/sialx/qm/reom_rhf_defs.sialx;
     src/sialx/qm/reom_hbar.sialx;
     src/sialx/qm/reom_vars.sialx;
+    src/sialx/qm/reom_util.sialx;
     src/sialx/qm/rccsd_rhf_defs.sialx;
     src/sialx/qm/scf_uhf.sialx;
     src/sialx/qm/scf_uhf_defs.sialx;

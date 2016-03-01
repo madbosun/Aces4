@@ -565,6 +565,7 @@ SIOX_FILES=\
 ./src/sialx/qm/reom_rhf_defs.siox\
 ./src/sialx/qm/reom_hbar.siox\
 ./src/sialx/qm/reom_vars.siox\
+./src/sialx/qm/reom_util.siox\
 ./src/sialx/qm/rlccd_rhf.siox\
 ./src/sialx/qm/rlccsd_rhf.siox\
 ./src/sialx/qm/tran_rhf_no4v.siox\
@@ -723,6 +724,7 @@ EXTRA_DIST += \
 ./src/sialx/qm/reom_rhf_defs.sialx\
 ./src/sialx/qm/reom_hbar.sialx\
 ./src/sialx/qm/reom_vars.sialx\
+./src/sialx/qm/reom_util.sialx\
 ./src/sialx/qm/lr_eom_ccsd_rhf.sialx\
 ./src/sialx/qm/lr_eom_linccsd_rhf.sialx\
 ./src/sialx/qm/lr_eom_ccpt2_rhf.sialx\

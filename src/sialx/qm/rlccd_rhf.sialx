@@ -397,36 +397,22 @@ server_barrier
 #    ----------------------------------------------------    
 #
 pardo mu, nu, lambda, sigma
-WHERE mu < nu 
+WHERE mu <= nu
 #
-    execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
-#
-    do i
-    do j
-#
-	REQUEST                       TAO_ab[lambda,i,sigma,j] 
-	Yab[mu,i,nu,j]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,j]
-	Y1ab[nu,j,mu,i]             = Yab[mu,i,nu,j]
-#
-	PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
-	PREPARE T2AO_ab[nu,j,mu,i] += Y1ab[nu,j,mu,i]
-#
-    enddo j
-    enddo i
-#
-endpardo mu, nu, lambda, sigma
-#
-pardo mu, nu, lambda, sigma
-WHERE mu == nu 
-#
-    execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
+    execute compute_integral_batch aoint[lambda,mu,sigma,nu]
 #
     do i
     do j
 #
-	REQUEST                       TAO_ab[lambda,i,sigma,j] 
-	Yab[mu,i,nu,j]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,j]
-	PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
+        REQUEST                       TAO_ab[lambda,i,sigma,j]
+        Yab[mu,i,nu,j]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,j]
+#
+        PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
+
+        if mu < nu
+            Y1ab[nu,j,mu,i]             = Yab[mu,i,nu,j]
+            PREPARE T2AO_ab[nu,j,mu,i] += Y1ab[nu,j,mu,i]
+        endif
 #
     enddo j
     enddo i

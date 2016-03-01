@@ -7,7 +7,7 @@ import "frag_rhf_defs.sialx"
 #
 # Declare indices 
 #
-index   kiter  = 1: scf_iter  
+index   kiter  = 1: 700 #scf_iter  
 index   kbeg   = 1: scf_beg
 index   korder = 1: scf_hist
 index   ifrag  = 1: nfrags # Nfragments

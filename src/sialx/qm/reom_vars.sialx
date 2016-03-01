@@ -219,6 +219,9 @@ served Gmat[ksub,ksub1]
 served HB2_aa[ksub,a,i,a1,i1]
 served HB2_ab[ksub,a,i,b,j]
 served HB1_a[ksub,a,i]
+served LH2_aa[ksub,a,i,a1,i1]
+served LH2_ab[ksub,a,i,b,j]
+served LH1_a[ksub,a,i]
 served RB2_aa[ksub,a,i,a1,i1]
 served RB2_ab[ksub,a,i,b,j]
 served RB1_a[ksub,a,i]
@@ -294,6 +297,11 @@ served Mck_a[a,i]
 # Declare local 
 # --------------- 
 #
+local l1aabj[a,a1,b,j]
+local l1aiai[a,i,a1,i1]
+local l2aiai[a,i,a1,i1]
+local l2aibj[a,i,a1,i1]
+local laibb[a,i,b,b1]
 local liaia[i,a,i1,a1]
 local laiai[a,i,a1,i1]
 local laiai2[a,i,a1,i1]
@@ -393,6 +401,8 @@ contiguous local EOM_EE_eV[kstate]
 # Declare temp 
 # --------------- 
 #
+temp t1bjbj[b,j,b1,j1]
+temp tpqqp[p,q,q1,p1]
 temp Raiai[a,i,a1,i1]
 temp R2aiai[a,i,a1,i1]
 temp R3aiai[a,i,a1,i1]
@@ -626,6 +636,7 @@ temp T1ixxi[i1,mu,nu,i]
 # Declare scalar 
 # --------------- 
 #
+scalar davidson_thresh
 scalar ncount1
 scalar ncount2
 scalar dsum
@@ -646,6 +657,7 @@ scalar  LOGRIGHT
 scalar  GROUNDSTATE
 scalar  EXCITESTATE
 scalar rms_e_conv
+scalar max_e_conv
 scalar rms_orb_conv
 scalar  etemp
 scalar  etemp1
