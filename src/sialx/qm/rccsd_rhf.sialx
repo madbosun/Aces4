@@ -1173,62 +1173,98 @@
 #    Contract AOINT with half back transformed Amplitudes 
 #    ----------------------------------------------------    
 #
-     PARDO lambda, sigma
-        allocate LTAO_ab[lambda,*,sigma,*] 
-        DO i
-        DO j
-           REQUEST                     TAO_ab[lambda,i,sigma,j] 
-           LTAO_ab[lambda,i,sigma,j] = TAO_ab[lambda,i,sigma,j]  
-        ENDDO j
-        ENDDO i
-
-        DO mu 
-        DO nu
-        WHERE mu < nu 
-           execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
-           DO i
-           DO j
-              Yab[mu,i,nu,j]              = 0.0  
-              execute aoladder_contraction aoint[lambda,mu,sigma,nu] LTAO_ab[lambda,i,sigma,j] Yab[mu,i,nu,j] 
-              Y1ab[nu,j,mu,i]             = Yab[mu,i,nu,j]
+#     PARDO lambda, sigma
+#        allocate LTAO_ab[lambda,*,sigma,*] 
+#        DO i
+#        DO j
+#           REQUEST                     TAO_ab[lambda,i,sigma,j] 
+#           LTAO_ab[lambda,i,sigma,j] = TAO_ab[lambda,i,sigma,j]  
+#        ENDDO j
+#        ENDDO i
 #
-              PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
-              PREPARE T2AO_ab[nu,j,mu,i] += Y1ab[nu,j,mu,i]
+#        DO mu 
+#        DO nu
+#        WHERE mu < nu 
+#           execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
+#           DO i
+#           DO j
+#              Yab[mu,i,nu,j]              = 0.0  
+#              execute aoladder_contraction aoint[lambda,mu,sigma,nu] LTAO_ab[lambda,i,sigma,j] Yab[mu,i,nu,j] 
+#              Y1ab[nu,j,mu,i]             = Yab[mu,i,nu,j]
+##
+#              PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
+#              PREPARE T2AO_ab[nu,j,mu,i] += Y1ab[nu,j,mu,i]
+##
+#           ENDDO j
+#           ENDDO i
+##
+#        ENDDO nu
+#        ENDDO mu 
+#        deallocate LTAO_ab[lambda,*,sigma,*] 
+#     ENDPARDO lambda, sigma
+##
+#     PARDO lambda, sigma
+#        allocate LTAO_ab[lambda,*,sigma,*] 
+#        DO i
+#        DO j
+#           REQUEST                     TAO_ab[lambda,i,sigma,j] 
+#           LTAO_ab[lambda,i,sigma,j] = TAO_ab[lambda,i,sigma,j]  
+#        ENDDO j
+#        ENDDO i
+#        DO mu 
+#        DO nu
+#        WHERE mu == nu 
+##
+#           execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
+##
+#           DO i
+#           DO j
+#              Yab[mu,i,nu,j]              = 0.0  
+#              execute aoladder_contraction aoint[lambda,mu,sigma,nu] LTAO_ab[lambda,i,sigma,j] Yab[mu,i,nu,j] 
+#              PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
+#           ENDDO j
+#           ENDDO i
+##
+#        ENDDO nu
+#        ENDDO mu 
+#        deallocate LTAO_ab[lambda,*,sigma,*] 
+#     ENDPARDO lambda, sigma
+pardo mu, nu, lambda, sigma
+WHERE mu < nu 
 #
-           ENDDO j
-           ENDDO i
+    execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
 #
-        ENDDO nu
-        ENDDO mu 
-        deallocate LTAO_ab[lambda,*,sigma,*] 
-     ENDPARDO lambda, sigma
+    do i
+    do j
 #
-     PARDO lambda, sigma
-        allocate LTAO_ab[lambda,*,sigma,*] 
-        DO i
-        DO j
-           REQUEST                     TAO_ab[lambda,i,sigma,j] 
-           LTAO_ab[lambda,i,sigma,j] = TAO_ab[lambda,i,sigma,j]  
-        ENDDO j
-        ENDDO i
-        DO mu 
-        DO nu
-        WHERE mu == nu 
+	REQUEST                       TAO_ab[lambda,i,sigma,j] 
+	Yab[mu,i,nu,j]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,j]
+	Y1ab[nu,j,mu,i]             = Yab[mu,i,nu,j]
 #
-           execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
+	PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
+	PREPARE T2AO_ab[nu,j,mu,i] += Y1ab[nu,j,mu,i]
 #
-           DO i
-           DO j
-              Yab[mu,i,nu,j]              = 0.0  
-              execute aoladder_contraction aoint[lambda,mu,sigma,nu] LTAO_ab[lambda,i,sigma,j] Yab[mu,i,nu,j] 
-              PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
-           ENDDO j
-           ENDDO i
+    enddo j
+    enddo i
 #
-        ENDDO nu
-        ENDDO mu 
-        deallocate LTAO_ab[lambda,*,sigma,*] 
-     ENDPARDO lambda, sigma
+endpardo mu, nu, lambda, sigma
+#
+pardo mu, nu, lambda, sigma
+WHERE mu == nu 
+#
+    execute compute_integral_batch aoint[lambda,mu,sigma,nu] 
+#
+    do i
+    do j
+#
+	REQUEST                       TAO_ab[lambda,i,sigma,j] 
+	Yab[mu,i,nu,j]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,j]
+	PREPARE T2AO_ab[mu,i,nu,j] += Yab[mu,i,nu,j]
+#
+    enddo j
+    enddo i
+#
+endpardo mu, nu, lambda, sigma
 #
 #    Half transform the t1 arrays. 
 #    ----------------------------- 

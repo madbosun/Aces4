@@ -3654,39 +3654,91 @@ server_barrier
 #    ----------------------------------------------------    
 
 pardo mu, nu, lambda, sigma
+where mu < nu
 
     execute compute_integral_batch aoint[lambda,mu,sigma,nu]
 
     do i
     do i1
-    if i < i1 
+    if i <= i1 
 	request TAO_aa[lambda,i,sigma,i1] 
 	Yaa[mu,i,nu,i1]              = aoint[lambda,mu,sigma,nu]*TAO_aa[lambda,i,sigma,i1]
-	Y1aa[nu,i1,mu,i]             = Yaa[mu,i,nu,i1]  
+	if i < i1 
+	    Y1aa[nu,i1,mu,i]             = Yaa[mu,i,nu,i1]  
+	endif 
 	prepare T2AO_aa[mu,i,nu,i1] += Yaa[mu,i,nu,i1]
-	prepare T2AO_aa[nu,i1,mu,i] += Y1aa[nu,i1,mu,i]
-    endif 
-    if i == i1 
-	request TAO_aa[lambda,i,sigma,i1] 
-	Yaa[mu,i,nu,i1]              = aoint[lambda,mu,sigma,nu]*TAO_aa[lambda,i,sigma,i1]
-	prepare T2AO_aa[mu,i,nu,i1] += Yaa[mu,i,nu,i1]
+	if i < i1 
+	    prepare T2AO_aa[nu,i1,mu,i] += Y1aa[nu,i1,mu,i]
+	endif 
     endif 
     enddo i1
     enddo i
 
+endpardo mu, nu, lambda, sigma
+
+pardo mu, nu, lambda, sigma
+where mu == nu
+
+    execute compute_integral_batch aoint[lambda,mu,sigma,nu]
+
     do i
     do i1
-    if i < i1 
-	request TAO_ab[lambda,i,sigma,i1] 
-	Yaa[mu,i,nu,i1]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,i1]
-	Y1aa[nu,i1,mu,i]             = Yaa[mu,i,nu,i1]  
-	prepare T2AO_ab[mu,i,nu,i1] += Yaa[mu,i,nu,i1]
-	prepare T2AO_ab[nu,i1,mu,i] += Y1aa[nu,i1,mu,i]
+    if i <= i1 
+	request TAO_aa[lambda,i,sigma,i1] 
+	Yaa[mu,i,nu,i1]              = aoint[lambda,mu,sigma,nu]*TAO_aa[lambda,i,sigma,i1]
+	if i < i1 
+	    Y1aa[nu,i1,mu,i]             = Yaa[mu,i,nu,i1]  
+	endif 
+	prepare T2AO_aa[mu,i,nu,i1] += Yaa[mu,i,nu,i1]
+	if i < i1 
+	    prepare T2AO_aa[nu,i1,mu,i] += Y1aa[nu,i1,mu,i]
+	endif 
     endif 
-    if i == i1 
+    enddo i1
+    enddo i
+
+endpardo mu, nu, lambda, sigma
+
+pardo mu, nu, lambda, sigma
+where mu < nu
+
+    execute compute_integral_batch aoint[lambda,mu,sigma,nu]
+
+    do i
+    do i1
+    if i <= i1 
 	request TAO_ab[lambda,i,sigma,i1] 
 	Yaa[mu,i,nu,i1]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,i1]
+	if i < i1 
+	    Y1aa[nu,i1,mu,i]             = Yaa[mu,i,nu,i1]  
+	endif 
 	prepare T2AO_ab[mu,i,nu,i1] += Yaa[mu,i,nu,i1]
+	if i < i1 
+	    prepare T2AO_ab[nu,i1,mu,i] += Y1aa[nu,i1,mu,i]
+	endif 
+    endif 
+    enddo i1
+    enddo i
+
+endpardo mu, nu, lambda, sigma
+
+pardo mu, nu, lambda, sigma
+where mu == nu
+
+    execute compute_integral_batch aoint[lambda,mu,sigma,nu]
+
+    do i
+    do i1
+    if i <= i1 
+	request TAO_ab[lambda,i,sigma,i1] 
+	Yaa[mu,i,nu,i1]              = aoint[lambda,mu,sigma,nu]*TAO_ab[lambda,i,sigma,i1]
+	if i < i1 
+	    Y1aa[nu,i1,mu,i]             = Yaa[mu,i,nu,i1]  
+	endif 
+	prepare T2AO_ab[mu,i,nu,i1] += Yaa[mu,i,nu,i1]
+	if i < i1 
+	    prepare T2AO_ab[nu,i1,mu,i] += Y1aa[nu,i1,mu,i]
+	endif 
     endif 
     enddo i1
     enddo i
