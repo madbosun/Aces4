@@ -2551,6 +2551,13 @@ ENDPROC SCF_DIIS_ITERATIONS
 #
 #------------------------------------------------------------------------------
 #
+
+print " "
+print "-- Fragment Spin-Restricted Hartree-Fock Program"
+print "-- Parallel Fock build in sial"
+print "-- Written by Jason N. Byrd, 2016"
+print " "
+
 density_threshold  = scf_conv
 etemp  = 1.0
 etemp += damp

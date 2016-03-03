@@ -558,6 +558,7 @@ SIOX_FILES=\
 ./src/sialx/qm/rcis_ccpt2_rhf.siox\
 ./src/sialx/qm/frag_rhf.siox\
 ./src/sialx/qm/frag_pol_rhf.siox\
+./src/sialx/qm/frag_rcis_rhf.siox\
 ./src/sialx/qm/mef_corr.siox\
 ./src/sialx/qm/lr_eom_ccsd_rhf.siox\
 ./src/sialx/qm/lr_eom_linccsd_rhf.siox\

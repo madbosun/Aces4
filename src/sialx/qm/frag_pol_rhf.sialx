@@ -274,6 +274,8 @@ local LFpq_b[mu,nu]
 #
 # Declare Temp 
 #
+temp Txxxi[mu,nu,lambda,i]
+temp Txxjj[mu,nu,i1,i]
 temp Tpq[mu,nu] 
 temp T1pq[mu,nu] 
 temp Txi[mu,i] 
@@ -401,12 +403,8 @@ pardo ifrag, mu,nu "Frag{i}{aa}{}"
 
 	etemp = (scalar)ifrag
 	execute return_h1_moi Txx[mu,nu] etemp
-	if do_shielding >= 1
-	    etemp = (scalar)ifrag
-	    T2xx[mu,nu] = 0.0
-	    execute return_h1frag T2xx[mu,nu] etemp
-	    Txx[mu,nu] += T2xx[mu,nu]
-	endif
+        execute return_h1frag t2xx[mu,nu] etemp
+	Txx[mu,nu] += t2xx[mu,nu]
 
 	PUT Fpq_a[mu,nu] += Txx[mu,nu]
 	PUT Fpq_b[mu,nu] += Txx[mu,nu]
@@ -757,12 +755,6 @@ PARDO ifrag, mu, nu "Frag{i}{aa}{}"
     etemp = (scalar)ifrag
     Txx[mu,nu] = 0.0
     execute return_h1_moi Txx[mu,nu] etemp
-    if do_shielding >= 1
-        etemp = (scalar)ifrag
-        T2xx[mu,nu] = 0.0
-	execute return_h1frag T2xx[mu,nu] etemp
-	Txx[mu,nu] += T2xx[mu,nu]
-    endif
     T1xx[mu,nu] = Txx[mu,nu]
 #
     PUT Fpq_a[mu,nu]  = Txx[mu,nu] 
@@ -1195,21 +1187,37 @@ sip_barrier
 #
     ENDPARDO ifrag, mu, nu, sigma
 
-if do_shielding >= 2
-    pardo ifrag,jfrag, mu,nu, lambda,sigma "Frag{Nij}{aa}{aa}"
+    PARDO ifrag, jfrag, mu,nu, lambda,sigma "Frag{Nij}{aa}{aa}"
 
         execute compute_integral_batch aoint[mu,nu,lambda,sigma]
 
-	T1xx[lambda,sigma]    = LDHFa[lambda,sigma]
-	T1xx[lambda,sigma]   += LDHFb[lambda,sigma]
+        do j
+        where (int)SwMOA_frag[(index)j] == jfrag
 
-	T2xx[mu,nu]           = aoint[mu,nu,lambda,sigma]*T1xx[lambda,sigma]
-#	T2xx[mu,nu]          *= 2.0
+            get DCa[sigma,j]
+            txxxi[mu,nu,lambda,j] = aoint[mu,nu,lambda,sigma]*DCa[sigma,j]
 
-	LFpq_a[mu,nu]        += T2xx[mu,nu]
+            do j1
+            where j==j1
 
-    endpardo ifrag,jfrag, mu,nu, lambda,sigma
-endif
+                get DCa[lambda,j1]
+                Txxjj[mu,nu,j1,j] = txxxi[mu,nu,lambda,j]*DCa[lambda,j1]
+                execute return_vpq Txxjj[mu,nu,j1,j] Txx[mu,nu]
+                Txx[mu,nu] *= 2.0
+                LFpq_a[mu,nu] += Txx[mu,nu]
+
+            enddo j1
+        enddo j
+    ENDPARDO ifrag, jfrag, mu,nu, lambda,sigma
+
+    pardo ifrag, mu,nu "Frag{i}{aa}{}"
+
+        etemp = (scalar)ifrag
+        execute return_h1frag txx[mu,nu] etemp
+        LFpq_a[mu,nu] += Txx[mu,nu]
+
+    endpardo ifrag, mu,nu
+
 
 sip_barrier
 #
@@ -1280,12 +1288,8 @@ where (int)SwAO_frag[(index)nu] == ifrag
     Txx[mu,nu]   = 0.0
     tmp = (scalar)ifrag
     execute return_h1_moi Txx[mu,nu] tmp
-    if do_shielding >= 1
-        etemp = (scalar)ifrag
-        T2xx[mu,nu] = 0.0
-	execute return_h1frag T2xx[mu,nu] tmp
-	Txx[mu,nu] += T2xx[mu,nu]
-    endif
+        execute return_h1frag t2xx[mu,nu] tmp
+	Txx[mu,nu] += t2xx[mu,nu]
 #
     T1xx[mu,nu]  = Txx[mu,nu] 
     T1xx[mu,nu] += Fpq_a[mu,nu] 
@@ -1854,15 +1858,6 @@ do kiter
 	call HFDENS_CONV
 	call HFENERGY_CONV
 
-        if do_shielding < 2
-	if max_density_difference < 0.5
-	    do_shielding = 2
-
-	    print " " 
-	    print "Performing interfragment polarization relaxation" 
-	    print " " 
-	endif
-	endif
 
 	if max_density_difference < density_threshold
 	    print " "
@@ -1900,6 +1895,12 @@ ENDPROC SCF_DIIS_ITERATIONS
 #
 #------------------------------------------------------------------------------
 #
+print " "
+print "-- Fragment Spin-Restricted Hartree-Fock Program"
+print "-- Inter-fragment polarization sans exchange"
+print "-- Parallel Fock build in sial"
+print "-- Written by Jason N. Byrd, 2016"
+print " "
 density_threshold  = scf_conv
 etemp  = 1.0
 etemp += damp
@@ -1944,6 +1945,13 @@ print inter_fragment_nn_rep
 #
 # zero DIIS vectors
 #
+pardo ifrag, mu,i "Frag{i}{ap}{}"
+    put DCa[mu,i] = 0.0
+endpardo ifrag, mu,i
+pardo ifrag, mu,a "Frag{i}{ap}{}"
+    put DCa[mu,a] = 0.0
+endpardo ifrag, mu,a
+
 pardo ifrag, a,i "Frag{i}{pp}{}"
     do d1
 	put Fai[a,i,d1] = 0.0
