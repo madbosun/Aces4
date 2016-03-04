@@ -81,6 +81,7 @@ static RDipole[ixyz]
 static LDipole[ixyz]
 static SHDiag[a,i]
 static C1_a[ksub2,a,i]
+static lrnorm[ksub,ksub1]
 #
 # Declare distributed
 # --------------- 

@@ -253,6 +253,11 @@ if myrank == root
 
     execute gen_eigen_calc GSmat SAlphaL SAlphaR SEk
 
+    print SAlphaR
+    print SAlphaL
+
+    print SEk
+
     do kstate
 	SEk0[kstate] = SEk[kstate]
     enddo kstate
@@ -457,11 +462,6 @@ do kstate
     Tkai[kstate,a,i] *= -1.0
 
     T2kai[kstate,a,i] = Tkai[kstate,a,i]
-    etemp2 = T2kai[kstate,a,i]*Tkai[kstate,a,i]
-    if etemp2 < davidson_thresh
-	Tkai[kstate,a,i] = 0.0
-    endif
-
     prepare cRk1_a[kstate,a,i] = Tkai[kstate,a,i]
 
 enddo kstate
@@ -506,11 +506,6 @@ do kstate
     Tkaiai[kstate,a,i,a1,i1] *= -1.0
 
     T2kaiai[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
-    etemp2 = T2kaiai[kstate,a,i,a1,i1]*Tkaiai[kstate,a,i,a1,i1]
-    if etemp2 < davidson_thresh
-	Tkaiai[kstate,a,i,a1,i1] = 0.0
-    endif
-
     prepare cRk2_aa[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
 
 enddo kstate
@@ -555,11 +550,6 @@ do kstate
     Tkaibj[kstate,a,i,b,j] *= -1.0
 
     T2kaibj[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
-    etemp2 = T2kaibj[kstate,a,i,b,j]*Tkaibj[kstate,a,i,b,j]
-    if etemp2 < davidson_thresh
-	Tkaibj[kstate,a,i,b,j] = 0.0
-    endif
-
     prepare cRk2_ab[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
 
 enddo kstate
@@ -605,11 +595,6 @@ do kstate
     Tkai[kstate,a,i] *= -1.0
 
     T2kai[kstate,a,i] = Tkai[kstate,a,i]
-    etemp2 = T2kai[kstate,a,i]*Tkai[kstate,a,i]
-    if etemp2 < davidson_thresh
-	Tkai[kstate,a,i] = 0.0
-    endif
-
     prepare cLk1_a[kstate,a,i] = Tkai[kstate,a,i]
 
 enddo kstate
@@ -654,11 +639,6 @@ do kstate
     Tkaiai[kstate,a,i,a1,i1] *= -1.0
 
     T2kaiai[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
-    etemp2 = T2kaiai[kstate,a,i,a1,i1]*Tkaiai[kstate,a,i,a1,i1]
-    if etemp2 < davidson_thresh
-	Tkaiai[kstate,a,i,a1,i1] = 0.0
-    endif
-
     prepare cLk2_aa[kstate,a,i,a1,i1] = Tkaiai[kstate,a,i,a1,i1]
 
 enddo kstate
@@ -703,11 +683,6 @@ do kstate
     Tkaibj[kstate,a,i,b,j] *= -1.0
 
     T2kaibj[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
-    etemp2 = T2kaibj[kstate,a,i,b,j]*Tkaibj[kstate,a,i,b,j]
-    if etemp2 < davidson_thresh
-	Tkaibj[kstate,a,i,b,j] = 0.0
-    endif
-
     prepare cLk2_ab[kstate,a,i,b,j] = Tkaibj[kstate,a,i,b,j]
 
 enddo kstate
@@ -937,9 +912,9 @@ where ksub == 1
 	etemp = -1.0
     endif
     norm1 *= etemp
-    norm2 = (norm1)**(-0.5)
-    if norm1 < (10.0)**(-12.0)
-	norm2 = 0.0
+    norm2 = 0.0
+    if norm1 > 0.0
+	norm2 = (norm1)**(-0.5)
     endif
 #######################
     pardo a,i
@@ -1067,6 +1042,7 @@ do qsub
 	Roverlap1   = 0.0
 	collective Loverlap1   += LoverlapS
 	collective Roverlap1   += RoverlapS
+	server_barrier
 #######################
 # do in place sum Bk+1 -= Loverlap1 * Ck
 	Tkk[qsub,ksub] = -1.0*Loverlap1
@@ -1139,9 +1115,9 @@ do qsub
 	etemp = -1.0
     endif
     norm1 *= etemp
-    norm2 = (norm1)**(-0.5)
-    if norm1 < (10.0)**(-12.0)
-	norm2 = 0.0
+    norm2 = 0.0
+    if norm1 > 0.0
+	norm2 = (norm1)**(-0.5)
     endif
 #######################
     pardo a,i
@@ -1171,6 +1147,113 @@ enddo qsub
 server_barrier
 #
 ENDPROC all_GS
+
+PROC check_residual_R
+sum3 = 0.0
+do kstate
+    server_barrier
+    sum1 = 0.0
+    pardo a,i
+	request cRk1_a[kstate,a,i]
+	Tkai[kstate,a,i] = cRk1_a[kstate,a,i]
+	etemp = Tkai[kstate,a,i] * cRk1_a[kstate,a,i]
+	sum1 += etemp
+    endpardo a,i
+
+    pardo a,i,a1,i1
+	request cRk2_aa[kstate,a,i,a1,i1]
+	Tkaiai[kstate,a,i,a1,i1] = cRk2_aa[kstate,a,i,a1,i1]
+	etemp = Tkaiai[kstate,a,i,a1,i1]*cRk2_aa[kstate,a,i,a1,i1]
+	sum1 += etemp
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+	request cRk2_ab[kstate,a,i,b,j]
+	Tkaibj[kstate,a,i,b,j] = cRk2_ab[kstate,a,i,b,j]
+	etemp = Tkaibj[kstate,a,i,b,j]*cRk2_ab[kstate,a,i,b,j]
+	sum1 += etemp
+    endpardo a,i,b,j
+    server_barrier
+    sum2 = 0.0
+    collective sum2 += sum1
+    print sum2
+    sum3 += sum2
+    server_barrier
+    normr = (sum2)**(0.5)
+# if the residual is smaller than the specified davidson threshold, we zero it
+# out so that it will not contribute to the G matrix spectrum
+    if normr < davidson_thresh
+	pardo a,i,kstate
+	    prepare cRk1_a[kstate,a,i] = 0.0
+	endpardo a,i,kstate
+	pardo a,i,a1,i1,kstate
+	    prepare cRk2_aa[kstate,a,i,a1,i1] = 0.0
+	endpardo a,i,a1,i1,kstate
+	pardo a,i,b,j,kstate
+	    prepare cRk2_ab[kstate,a,i,b,j] = 0.0
+	endpardo a,i,b,j,kstate
+    endif
+    server_barrier
+enddo kstate
+etemp3 = (scalar)eom_roots
+rms_orb_conv = (sum3/etemp3)**(0.5)
+server_barrier
+assert_same rms_orb_conv
+ENDPROC check_residual_R
+
+PROC check_residual_L
+sum3 = 0.0
+do kstate
+    server_barrier
+    sum1 = 0.0
+    pardo a,i
+	request cLk1_a[kstate,a,i]
+	Tkai[kstate,a,i] = cLk1_a[kstate,a,i]
+	etemp = Tkai[kstate,a,i] * cLk1_a[kstate,a,i]
+	sum1 += etemp
+    endpardo a,i
+
+    pardo a,i,a1,i1
+	request cLk2_aa[kstate,a,i,a1,i1]
+	Tkaiai[kstate,a,i,a1,i1] = cLk2_aa[kstate,a,i,a1,i1]
+	etemp = Tkaiai[kstate,a,i,a1,i1]*cLk2_aa[kstate,a,i,a1,i1]
+	sum1 += etemp
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+	request cLk2_ab[kstate,a,i,b,j]
+	Tkaibj[kstate,a,i,b,j] = cLk2_ab[kstate,a,i,b,j]
+	etemp = Tkaibj[kstate,a,i,b,j]*cLk2_ab[kstate,a,i,b,j]
+	sum1 += etemp
+    endpardo a,i,b,j
+    server_barrier
+    sum2 = 0.0
+    collective sum2 += sum1
+    sum3 += sum2
+    print sum2
+    server_barrier
+    normr = (sum2)**(0.5)
+# if the residual is smaller than the specified davidson threshold, we zero it
+# out so that it will not contribute to the G matrix spectrum
+    if normr < davidson_thresh
+	pardo a,i,kstate
+	    prepare cLk1_a[kstate,a,i] = 0.0
+	endpardo a,i,kstate
+	pardo a,i,a1,i1,kstate
+	    prepare cLk2_aa[kstate,a,i,a1,i1] = 0.0
+	endpardo a,i,a1,i1,kstate
+	pardo a,i,b,j,kstate
+	    prepare cLk2_ab[kstate,a,i,b,j] = 0.0
+	endpardo a,i,b,j,kstate
+    endif
+    server_barrier
+enddo kstate
+etemp3 = (scalar)eom_roots
+rms_orb_conv += (sum3/etemp3)**(0.5)
+rms_orb_conv *= 0.5
+server_barrier
+assert_same rms_orb_conv
+ENDPROC check_residual_L
 
 PROC update_vecs
 #
@@ -1205,6 +1288,12 @@ call form_residual_L2aa
 call form_residual_L2ab
 
 server_barrier
+
+call check_residual_R
+call check_residual_L
+print rms_orb_conv
+
+server_barrier
 call update_RB1
 call update_LB1
 
@@ -1213,37 +1302,126 @@ call update_LB2aa
 
 call update_RB2ab
 call update_LB2ab
-server_barrier
-sum1 = 0.0
-pardo a,i,kstate
-    request cRk1_a[kstate,a,i]
-    Tkai[kstate,a,i] = cRk1_a[kstate,a,i]
-    etemp = Tkai[kstate,a,i] * cRk1_a[kstate,a,i]
-    sum1 += etemp
-endpardo a,i,kstate
-
-pardo a,i,a1,i1,kstate
-    request cRk2_aa[kstate,a,i,a1,i1]
-    Tkaiai[kstate,a,i,a1,i1] = cRk2_aa[kstate,a,i,a1,i1]
-    etemp = Tkaiai[kstate,a,i,a1,i1]*cRk2_aa[kstate,a,i,a1,i1]
-    sum1 += etemp
-endpardo a,i,a1,i1,kstate
-
-pardo a,i,b,j,kstate
-    request cRk2_ab[kstate,a,i,b,j]
-    Tkaibj[kstate,a,i,b,j] = cRk2_ab[kstate,a,i,b,j]
-    etemp = Tkaibj[kstate,a,i,b,j]*cRk2_ab[kstate,a,i,b,j]
-    sum1 += etemp
-endpardo a,i,b,j,kstate
-server_barrier
-sum2 = 0.0
-collective sum2 += sum1
-etemp3 = (scalar)eom_roots
-rms_orb_conv = (sum2/etemp3)**(0.5)
-server_barrier
-assert_same rms_orb_conv
 #
 ENDPROC update_vecs
+
+PROC RNORM
+print " "
+print "R NORM"
+do ksub
+server_barrier
+sum1 = 0.0
+pardo a,i
+    request RB1_a[ksub,a,i]
+    Tkai[ksub,a,i] = RB1_a[ksub,a,i]
+    etemp = Tkai[ksub,a,i] * RB1_a[ksub,a,i]
+    sum1 += etemp
+endpardo a,i
+
+pardo a,i,a1,i1
+    request RB2_aa[ksub,a,i,a1,i1]
+    Tkaiai[ksub,a,i,a1,i1] = RB2_aa[ksub,a,i,a1,i1]
+    etemp = Tkaiai[ksub,a,i,a1,i1]*RB2_aa[ksub,a,i,a1,i1]
+    sum1 += etemp
+endpardo a,i,a1,i1
+
+pardo a,i,b,j
+    request RB2_ab[ksub,a,i,b,j]
+    Tkaibj[ksub,a,i,b,j] = RB2_ab[ksub,a,i,b,j]
+    etemp = Tkaibj[ksub,a,i,b,j]*RB2_ab[ksub,a,i,b,j]
+    sum1 += etemp
+endpardo a,i,b,j
+server_barrier
+sum2 = 0.0
+print ksub
+collective sum2 += sum1
+print sum2
+server_barrier
+enddo ksub
+print "---------"
+endPROC RNORM
+
+PROC LNORM
+print " "
+print "L NORM"
+do ksub
+server_barrier
+sum1 = 0.0
+pardo a,i
+    request LB1_a[ksub,a,i]
+    Tkai[ksub,a,i] = LB1_a[ksub,a,i]
+    etemp = Tkai[ksub,a,i] * LB1_a[ksub,a,i]
+    sum1 += etemp
+endpardo a,i
+
+pardo a,i,a1,i1
+    request LB2_aa[ksub,a,i,a1,i1]
+    Tkaiai[ksub,a,i,a1,i1] = LB2_aa[ksub,a,i,a1,i1]
+    etemp = Tkaiai[ksub,a,i,a1,i1]*LB2_aa[ksub,a,i,a1,i1]
+    sum1 += etemp
+endpardo a,i,a1,i1
+
+pardo a,i,b,j
+    request LB2_ab[ksub,a,i,b,j]
+    Tkaibj[ksub,a,i,b,j] = LB2_ab[ksub,a,i,b,j]
+    etemp = Tkaibj[ksub,a,i,b,j]*LB2_ab[ksub,a,i,b,j]
+    sum1 += etemp
+endpardo a,i,b,j
+server_barrier
+sum2 = 0.0
+print ksub
+collective sum2 += sum1
+print sum2
+server_barrier
+enddo ksub
+print "---------"
+endPROC LNORM
+
+proc LR_NORM
+do ksub
+do ksub1
+    Tk[ksub] = 1.0
+    T1k[ksub1] = 1.0
+    sip_barrier
+    sum1 = 0.0
+    sip_barrier
+    pardo a,i
+	request RB1_a[ksub1,a,i]
+	request LB1_a[ksub,a,i]
+	T1ai[a,i] = T1k[ksub1]*RB1_a[ksub1,a,i]
+	Tai[a,i] = Tk[ksub]*LB1_a[ksub,a,i]
+	etemp = T1ai[a,i]*Tai[a,i]
+	etemp *= 2.0
+	sum1 += etemp
+    endpardo a,i
+
+    pardo a,i,a1,i1
+	request RB2_aa[ksub1,a,i,a1,i1]
+	request LB2_aa[ksub,a,i,a1,i1]
+	T1aiai[a,i,a1,i1] = T1k[ksub1]*RB2_aa[ksub1,a,i,a1,i1]
+	Taiai[a,i,a1,i1] = Tk[ksub]*LB2_aa[ksub,a,i,a1,i1]
+	etemp = T1aiai[a,i,a1,i1]*Taiai[a,i,a1,i1]
+	etemp *= 0.5
+	sum1 += etemp
+    endpardo a,i,a1,i1
+
+    pardo a,i,b,j
+	request RB2_ab[ksub1,a,i,b,j]
+	request LB2_ab[ksub,a,i,b,j]
+	T1aibj[a,i,b,j] = T1k[ksub1]*RB2_ab[ksub1,a,i,b,j]
+	Taibj[a,i,b,j] = Tk[ksub]*LB2_ab[ksub,a,i,b,j]
+	etemp = T1aibj[a,i,b,j]*Taibj[a,i,b,j]
+	sum1 += etemp
+    endpardo a,i,b,j
+    sip_barrier
+    sum2 = 0.0
+    collective  sum2 += sum1
+    lrnorm[ksub,ksub1] = sum2
+    sip_barrier
+enddo ksub1
+enddo ksub
+print lrnorm
+endproc LR_NORM
 
 PROC form_guess
 

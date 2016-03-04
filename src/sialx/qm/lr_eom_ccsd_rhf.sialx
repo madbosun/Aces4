@@ -1755,7 +1755,7 @@ subspc = eom_subspc
 roots = eom_roots
 is_ccpt = 0.0
 
-davidson_thresh=(10.0)**(-10.0)
+davidson_thresh=(10.0)**(-14.0)
 
 # Initilize the vaiable to zmax and imax (memory of ERD and OED).
 zmax = 0.0
@@ -1792,7 +1792,13 @@ do kiter
     call form_G
     call diag_G
     call update_vecs
+    call RNORM
+    call LNORM
+    call lr_norm
     call all_GS
+    call RNORM
+    call LNORM
+    call lr_norm
 
     etemp = 0.0
     etemp2 = 0.0
